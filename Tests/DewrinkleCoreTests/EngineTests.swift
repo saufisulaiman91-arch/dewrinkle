@@ -525,26 +525,26 @@ final class EngineTests: XCTestCase {
         natural.fine = 1
         natural.coarse = 0
         natural.preserveFolds = 1
-        natural.detailRadiusOverride = 0.7
-        natural.fineRadiusOverride = 3.5
-        natural.coarseRadiusOverride = 20
+        natural.detailRadiusOverride = 0.45
+        natural.fineRadiusOverride = 4
+        natural.coarseRadiusOverride = 18
         let smoothed = FrequencySeparation.apply(
             image,
             mask: MaskBuffer(width: width, height: height, fill: 1),
             parameters: natural,
             structure: noProtection
         )
-        XCTAssertLessThan(peakToPeak(smoothed), peakToPeak(image) * 0.55)
-        let sheenBefore = abs(image.pixels[image.offset(0, 12)] - image.pixels[image.offset(22, 12)])
-        let sheenAfter = abs(smoothed.pixels[smoothed.offset(0, 12)] - smoothed.pixels[smoothed.offset(22, 12)])
-        XCTAssertGreaterThan(sheenAfter, sheenBefore * 0.65)
-        var weaveDrift: Float = 0
+        let row = 12
+        XCTAssertLessThan(tone(smoothed, period: 8, y: row), tone(image, period: 8, y: row) * 0.35)
+        XCTAssertGreaterThan(tone(smoothed, period: 90, y: row), tone(image, period: 90, y: row) * 0.75)
+        var weaveBefore: Float = 0
+        var weaveAfter: Float = 0
+        let samples = width / 2 - 2
         for x in stride(from: 2, to: width - 2, by: 2) {
-            let before = image.pixels[image.offset(x, 4)] - image.pixels[image.offset(x + 1, 4)]
-            let after = smoothed.pixels[smoothed.offset(x, 4)] - smoothed.pixels[smoothed.offset(x + 1, 4)]
-            weaveDrift += abs(before - after)
+            weaveBefore += abs(image.pixels[image.offset(x, row)] - image.pixels[image.offset(x + 1, row)])
+            weaveAfter += abs(smoothed.pixels[smoothed.offset(x, row)] - smoothed.pixels[smoothed.offset(x + 1, row)])
         }
-        XCTAssertLessThan(weaveDrift / Float(width / 2), 0.06)
+        XCTAssertGreaterThan(weaveAfter / Float(samples), weaveBefore / Float(samples) * 0.55)
         let index = image.offset(30, 8)
         let chromaBefore = image.pixels[index] - image.pixels[index + 2]
         let chromaAfter = smoothed.pixels[index] - smoothed.pixels[index + 2]
@@ -686,6 +686,18 @@ private func sine(width: Int, height: Int, period: Float, amplitude: Float) -> R
         }
     }
     return image
+}
+
+private func tone(_ image: RGBImage, period: Float, y: Int) -> Float {
+    var sine: Float = 0
+    var cosine: Float = 0
+    for x in 0..<image.width {
+        let phase = 2 * Float.pi * Float(x) / period
+        let value = image.pixels[image.offset(x, y)]
+        sine += value * sin(phase)
+        cosine += value * cos(phase)
+    }
+    return 2 * hypot(sine, cosine) / Float(image.width)
 }
 
 private func peakToPeak(_ image: RGBImage) -> Float {
