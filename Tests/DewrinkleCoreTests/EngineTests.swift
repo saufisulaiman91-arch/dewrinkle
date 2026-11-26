@@ -271,6 +271,59 @@ final class EngineTests: XCTestCase {
         XCTAssertGreaterThan(withoutFace.values[withoutFace.index(2, 2)], 0.9)
     }
 
+    func testPinkSatinStaysWhenSkinColorIsOffAndAHandIsCutOut() {
+        let pink = RGBImage(width: 30, height: 30, pixels: {
+            var pixels = [Float](repeating: 0, count: 30 * 30 * 3)
+            for index in 0..<(30 * 30) {
+                pixels[index * 3] = 0.86
+                pixels[index * 3 + 1] = 0.45
+                pixels[index * 3 + 2] = 0.50
+            }
+            return pixels
+        }())
+        let kept = GarmentMaskRefinement.refine(
+            person: MaskBuffer(width: 30, height: 30, fill: 1),
+            image: pink,
+            faces: [],
+            skinStrength: 0
+        )
+        XCTAssertGreaterThan(kept.mean(), 0.95)
+
+        let hand = NormalizedRect(x: 0.62, y: 0.62, width: 0.22, height: 0.22)
+        let carved = GarmentMaskRefinement.refine(
+            person: MaskBuffer(width: 30, height: 30, fill: 1),
+            image: pink,
+            faces: [],
+            skinStrength: 0,
+            hands: [hand]
+        )
+        XCTAssertLessThan(carved.values[carved.index(22, 22)], 0.05)
+        XCTAssertGreaterThan(carved.values[carved.index(2, 2)], 0.9)
+    }
+
+    func testBrushStrokeAtTheTopLeftLandsOnTheTopLeft() {
+        let point = UprightPoint.unit(
+            viewX: 2,
+            viewY: 2,
+            originX: 0,
+            originY: 0,
+            scale: 1,
+            pixelWidth: 40,
+            pixelHeight: 40
+        )
+        XCTAssertNotNil(point)
+        var document = MaskDocument()
+        document.add(BrushStroke(
+            settings: BrushSettings(radius: 6, hardness: 1, opacity: 1, mode: .paint),
+            referenceWidth: 40,
+            points: [point!]
+        ))
+        let mask = document.rasterize(width: 40, height: 40)
+        XCTAssertGreaterThan(mask.values[mask.index(2, 2)], 0.8)
+        XCTAssertLessThan(mask.values[mask.index(2, 37)], 0.05)
+        XCTAssertLessThan(mask.values[mask.index(37, 2)], 0.05)
+    }
+
     func testNoiseIsOffByDefaultAndChromaDropsWithoutMovingLuma() {
         XCTAssertFalse(NoiseReductionParameters.off.isActive)
         XCTAssertEqual(NoiseReductionParameters.off.detail, 0.5, accuracy: 0.0001)

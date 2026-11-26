@@ -192,13 +192,10 @@ final class EditorModel: ObservableObject {
         isBusy = true
         busyLabel = "Finding the garment…"
         let rgb = photo.previewRGB
-        let preview = photo.preview
         Task {
             do {
                 let segmenter = VisionForegroundSegmenter()
-                let person = try await segmenter.foregroundMask(for: rgb)
-                let faces = (try? VisionForegroundSegmenter.faces(in: preview)) ?? []
-                let refined = GarmentMaskRefinement.refine(person: person, image: rgb, faces: faces)
+                let refined = try await segmenter.maskedGarment(for: rgb)
                 if refined.mean() < 0.004 {
                     self.status = "No subject found. Paint the cloth, or try a shot where the garment is the foreground."
                 } else {

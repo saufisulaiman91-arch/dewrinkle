@@ -108,20 +108,20 @@ final class CanvasNSView: NSView {
         NSGraphicsContext.current?.imageInterpolation = (scale * screenScale) >= 1.2 ? .none : .high
 
         if splitEnabled, !showBefore, let before = beforeCache {
-            after.draw(in: destination, from: .zero, operation: .copy, fraction: 1)
+            draw(after, in: destination, operation: .copy)
             NSGraphicsContext.current?.saveGraphicsState()
             NSRect(x: 0, y: 0, width: splitX, height: bounds.height).clip()
-            before.draw(in: destination, from: .zero, operation: .copy, fraction: 1)
+            draw(before, in: destination, operation: .copy)
             NSGraphicsContext.current?.restoreGraphicsState()
             NSColor.white.withAlphaComponent(0.85).setFill()
             NSRect(x: splitX - 0.5, y: 0, width: 1, height: bounds.height).fill()
         } else {
             let image = showBefore ? (beforeCache ?? after) : after
-            image.draw(in: destination, from: .zero, operation: .copy, fraction: 1)
+            draw(image, in: destination, operation: .copy)
         }
 
         if showOverlay, let overlay = overlayCache {
-            overlay.draw(in: destination, from: .zero, operation: .sourceOver, fraction: 1)
+            draw(overlay, in: destination, operation: .sourceOver)
         }
 
         if let cursorPoint, !spaceDown, !draggingPan, destination.contains(cursorPoint) {
@@ -295,14 +295,30 @@ final class CanvasNSView: NSView {
 
     private var splitX: CGFloat { bounds.width * splitFraction }
 
+    /// This view is flipped, so a plain `NSImage.draw` paints the photo upside down.
+    /// `respectFlipped` keeps row 0 of the upright image at the top, which is the
+    /// same corner `normalized` and the brush use.
+    private func draw(_ image: NSImage, in destination: NSRect, operation: NSCompositingOperation) {
+        image.draw(
+            in: destination,
+            from: .zero,
+            operation: operation,
+            fraction: 1,
+            respectFlipped: true,
+            hints: nil
+        )
+    }
+
     private func normalized(_ point: NSPoint) -> SIMD2<Float>? {
-        guard pixelWidth > 0, scale > 0 else { return nil }
-        let imageX = originX + point.x / scale
-        let imageY = originY + point.y / scale
-        let u = imageX / CGFloat(pixelWidth)
-        let v = imageY / CGFloat(pixelHeight)
-        guard u >= 0, v >= 0, u <= 1, v <= 1 else { return nil }
-        return SIMD2<Float>(Float(u), Float(v))
+        UprightPoint.unit(
+            viewX: Float(point.x),
+            viewY: Float(point.y),
+            originX: Float(originX),
+            originY: Float(originY),
+            scale: Float(scale),
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight
+        )
     }
 
     private func publishZoom() {

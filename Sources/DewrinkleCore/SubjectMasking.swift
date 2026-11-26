@@ -103,34 +103,44 @@ public enum GarmentMaskRefinement {
     /// Subtracts smooth skin and a feathered face box from a person/foreground mask.
     /// Textured pixels (weave, gingham, embroidery) keep their mask even if the
     /// color is close to skin, which matters for beige abayas.
+    /// `skinStrength` above zero removes smooth skin-colored pixels. Pink satin
+    /// scores as skin, so the auto mask passes 0 and carves faces and hands by
+    /// rectangle instead.
     public static func refine(
         person mask: MaskBuffer,
         image: RGBImage,
         faces: [NormalizedRect],
-        skinStrength: Float = 0.9
+        skinStrength: Float = 0.9,
+        hands: [NormalizedRect] = []
     ) -> MaskBuffer {
         let person = mask.resized(toWidth: image.width, height: image.height)
-        // Local contrast, not Sobel. A tight weave is a balanced checker and Sobel
-        // cancels on it, which would let a beige abaya be read as skin.
-        let contrast = localContrast(of: image)
         var output = person
-        let width = image.width
-        for y in 0..<image.height {
-            for x in 0..<width {
-                let pixel = y * width + x
-                let source = image.offset(x, y)
-                let skin = SkinTone.likelihood(
-                    r: image.pixels[source],
-                    g: image.pixels[source + 1],
-                    b: image.pixels[source + 2]
-                )
-                let texture = smoothstep(0.04, 0.12, contrast[pixel])
-                let smoothSkin = skin * (1 - texture)
-                output.values[pixel] = person.values[pixel] * (1 - clamp01(skinStrength) * smoothSkin)
+        if skinStrength > 0.001 {
+            // Local contrast, not Sobel. A tight weave is a balanced checker and Sobel
+            // cancels on it, which would let a beige abaya be read as skin.
+            let contrast = localContrast(of: image)
+            let width = image.width
+            for y in 0..<image.height {
+                for x in 0..<width {
+                    let pixel = y * width + x
+                    let source = image.offset(x, y)
+                    let skin = SkinTone.likelihood(
+                        r: image.pixels[source],
+                        g: image.pixels[source + 1],
+                        b: image.pixels[source + 2]
+                    )
+                    let texture = smoothstep(0.04, 0.12, contrast[pixel])
+                    let smoothSkin = skin * (1 - texture)
+                    output.values[pixel] = person.values[pixel] * (1 - clamp01(skinStrength) * smoothSkin)
+                }
             }
         }
         for face in faces {
-            let expanded = face.expanded(scaleX: 1.28, scaleY: 1.38)
+            let expanded = face.expanded(scaleX: 1.55, scaleY: 1.85)
+            subtractFace(&output, rect: expanded)
+        }
+        for hand in hands {
+            let expanded = hand.expanded(scaleX: 1.25, scaleY: 1.35)
             subtractFace(&output, rect: expanded)
         }
         return output

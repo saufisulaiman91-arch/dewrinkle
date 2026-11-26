@@ -17,10 +17,55 @@ enum RenderError: LocalizedError {
     }
 }
 
-/// CIContext.render(toBitmap:) writes the top row first on macOS 14.
-/// If a round trip is upside down against the original, set this to false.
+/// Core Image's bitmap origin is the bottom-left. `MaskBuffer`, the canvas, and
+/// export all use a top-left first row. The probe measures which row
+/// `render(toBitmap:)` actually writes first on this OS, so a portrait JPEG
+/// is not stored upside down.
 enum BitmapLayout {
-    static let rowsAreTopFirst = true
+    static let rowsAreTopFirst: Bool = probe()
+
+    /// A 1×2 image whose first stored row is red and whose second row is blue.
+    /// If `render(toBitmap:)` returns red first, that API is already top-left.
+    private static func probe() -> Bool {
+        var bytes: [UInt8] = [
+            255, 0, 0, 255,
+            0, 0, 255, 255
+        ]
+        let data = Data(bytes) as CFData
+        guard let provider = CGDataProvider(data: data),
+              let cgImage = CGImage(
+                width: 1,
+                height: 2,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else {
+            return true
+        }
+        let context = CIContext(options: [
+            .workingColorSpace: NSNull(),
+            .outputColorSpace: NSNull()
+        ])
+        var pixels = [Float](repeating: 0, count: 8)
+        pixels.withUnsafeMutableBytes { raw in
+            guard let base = raw.baseAddress else { return }
+            context.render(
+                CIImage(cgImage: cgImage),
+                toBitmap: base,
+                rowBytes: 16,
+                bounds: CGRect(x: 0, y: 0, width: 1, height: 2),
+                format: .RGBAf,
+                colorSpace: nil
+            )
+        }
+        return pixels[0] > 0.5 && pixels[0] > pixels[2]
+    }
 }
 
 enum CIGraph {

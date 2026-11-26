@@ -173,7 +173,7 @@ Dewrinkle.xcodeproj       open this
 
 ## Tested here
 
-Swift 6.2.1 on Linux, `swift test`, 17 tests, all passing:
+The processing tests below passed on Linux with `swift test`. macOS CI runs those plus the orientation round trip:
 
 - 8-bit and 16-bit quantize round trip, and EXIF orientation 6
 - Gaussian energy and symmetry
@@ -193,9 +193,9 @@ Swift 6.2.1 on Linux, `swift test`, 17 tests, all passing:
 
 - Launch, and every control in the window. The GitHub Actions workflow compiles the Release app and ad-hoc signs it; it does not open the window
 - Core Image and the Metal kernel against the CPU reference, including whether `CIGaussianBlur`’s radius matches the reference sigma
-- `CIContext.render(toBitmap:)` row order. `BitmapLayout.rowsAreTopFirst` in `CIPipeline.swift` is `true`. If a round trip is upside down against the original, set it to `false`. The Before image is the original CGImage, so a flip shows up immediately in the split view
+- `CIContext.render(toBitmap:)` is probed at launch so the first bitmap row matches the top of the upright photo. The canvas is a flipped view and draws with `respectFlipped`, so the photo, the mask, and a top-left brush stroke share that corner. `OrientationTests` checks load, display, export, and EXIF orientation 6
 - Memory and time on an 8256×5504 16-bit TIFF. The editor holds a 2048 px proxy; the full frame is decoded at export. Expect on the order of a gigabyte of float buffers during that export
-- Vision on real hijab, abaya, bridal, and product shots, and the skin heuristic on the skin tones and beige fabrics you actually shoot
+- Vision on real hijab, abaya, bridal, and product shots. Auto mask cuts faces and hands out with Vision rectangles, landmarks, and hand pose. It does not use the skin-color score, because pink satin is read as skin
 - ImageIO’s 16-bit LZW TIFF and JPEG writers against a real Capture One file: profile, EXIF, MakerNote, DPI
 - JPEG quality 92 as measured by a client file, and Display P3 specifically
 - Trackpad pan direction, brush cursor size, and mask alignment. If the red overlay is flipped relative to the cloth, the mask upload in `CGBridge.grayImage` is the place to flip

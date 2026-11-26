@@ -162,6 +162,29 @@ public enum ImageOrientation: Int, Equatable, Sendable, CaseIterable {
     }
 }
 
+/// Top-left origin, matching `MaskBuffer` row 0 and an upright CGImage.
+/// The canvas is a flipped AppKit view; this is the mapping it must use so a
+/// stroke at the top-left of the window lands on the top-left of the photo.
+public enum UprightPoint {
+    public static func unit(
+        viewX: Float,
+        viewY: Float,
+        originX: Float,
+        originY: Float,
+        scale: Float,
+        pixelWidth: Int,
+        pixelHeight: Int
+    ) -> SIMD2<Float>? {
+        guard pixelWidth > 0, pixelHeight > 0, scale > 0 else { return nil }
+        let imageX = originX + viewX / scale
+        let imageY = originY + viewY / scale
+        let u = imageX / Float(pixelWidth)
+        let v = imageY / Float(pixelHeight)
+        guard u >= 0, v >= 0, u <= 1, v <= 1 else { return nil }
+        return SIMD2(u, v)
+    }
+}
+
 func clamp01(_ value: Float) -> Float {
     min(max(value, 0), 1)
 }

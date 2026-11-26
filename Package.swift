@@ -14,6 +14,21 @@ let package = Package(
     ],
     targets: [
         .target(name: "DewrinkleCore"),
-        .testTarget(name: "DewrinkleCoreTests", dependencies: ["DewrinkleCore"])
+        .target(
+            name: "DewrinkleRendering",
+            dependencies: ["DewrinkleCore"],
+            path: "App",
+            exclude: [
+                "DewrinkleApp.swift",
+                "Dewrinkle.entitlements",
+                "Info.plist",
+                "Assets.xcassets",
+                "Shaders",
+                "UI",
+                "Masking"
+            ]
+        ),
+        .testTarget(name: "DewrinkleCoreTests", dependencies: ["DewrinkleCore"]),
+        .testTarget(name: "DewrinkleRenderingTests", dependencies: ["DewrinkleRendering", "DewrinkleCore"])
     ]
 )
