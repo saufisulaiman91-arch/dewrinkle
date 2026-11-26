@@ -50,7 +50,7 @@ public struct FrequencySigmas: Equatable, Sendable {
 }
 
 public struct DewrinkleParameters: Equatable, Sendable {
-    /// Final mix of the corrected cloth onto the original. 0.70 is the working default.
+    /// How far crease shading moves toward the smooth cloth. 0.50 is the natural default.
     public var strength: Float
     /// How much of the fine-wrinkle band to remove. 0 keeps it, 1 removes it.
     public var fine: Float
@@ -61,6 +61,8 @@ public struct DewrinkleParameters: Equatable, Sendable {
     public var detailRadiusOverride: Float?
     public var fineRadiusOverride: Float?
     public var coarseRadiusOverride: Float?
+    /// 0 flattens broad folds. 1 keeps highlight and shadow that are wider than the coarse radius.
+    public var preserveFolds: Float
 
     public init(
         strength: Float,
@@ -69,7 +71,8 @@ public struct DewrinkleParameters: Equatable, Sendable {
         scales: FrequencyScales = .standard,
         detailRadiusOverride: Float? = nil,
         fineRadiusOverride: Float? = nil,
-        coarseRadiusOverride: Float? = nil
+        coarseRadiusOverride: Float? = nil,
+        preserveFolds: Float = 0
     ) {
         self.strength = strength
         self.fine = fine
@@ -78,12 +81,17 @@ public struct DewrinkleParameters: Equatable, Sendable {
         self.detailRadiusOverride = detailRadiusOverride
         self.fineRadiusOverride = fineRadiusOverride
         self.coarseRadiusOverride = coarseRadiusOverride
+        self.preserveFolds = preserveFolds
     }
 
-    public static let standard = DewrinkleParameters(strength: 0.70, fine: 0.80, coarse: 0.45)
+    /// Natural: ease crease shading, keep satin sheen and the drape.
+    public static let standard = DewrinkleParameters(strength: 0.50, fine: 0.62, coarse: 0.18, preserveFolds: 0.75)
+    public static let strong = DewrinkleParameters(strength: 0.72, fine: 0.85, coarse: 0.48, preserveFolds: 0.15)
 
     public var fineKeep: Float { 1 - clamp01(fine) }
     public var coarseKeep: Float { 1 - clamp01(coarse) }
+    /// How much of the broad fold band to keep. Preserve-folds pulls this back toward 1.
+    public var foldKeep: Float { 1 - clamp01(coarse) * (1 - clamp01(preserveFolds)) }
     public var clampedStrength: Float { clamp01(strength) }
 
     /// `pixelScale` is workingShortSide / fullShortSide. Preview passes a
@@ -157,10 +165,16 @@ public enum FrequencySeparation {
 
         let shortSide = fullShortSide ?? image.shortSide
         let sigmas = parameters.resolvedSigmas(fullShortSide: shortSide, pixelScale: pixelScale)
+        let feather = GuidedMask.refine(
+            aligned,
+            guide: image.luminancePlane(),
+            radius: max(1.25, Float(shortSide) * pixelScale * 0.004)
+        )
+        let gray = RGBImage(lumaOf: image)
         let corrected = recombine(
-            bands(of: image, sigmas: sigmas),
+            bands(of: gray, sigmas: sigmas),
             fineKeep: parameters.fineKeep,
-            coarseKeep: parameters.coarseKeep
+            coarseKeep: parameters.foldKeep
         )
         let protection = StructureMask.make(
             image: image,
@@ -171,13 +185,15 @@ public enum FrequencySeparation {
         let width = image.width
         for y in 0..<image.height {
             for x in 0..<width {
-                let coverage = aligned.values[y * width + x] * (1 - protection.values[y * width + x]) * strength
+                let coverage = feather.values[y * width + x] * (1 - protection.values[y * width + x])
                 if coverage <= 0 { continue }
                 let index = image.offset(x, y)
+                let originalY = 0.299 * image.pixels[index] + 0.587 * image.pixels[index + 1] + 0.114 * image.pixels[index + 2]
+                let delta = (corrected.pixels[index] - originalY) * strength
                 for channel in 0..<3 {
-                    let blended = image.pixels[index + channel] * (1 - coverage)
-                        + corrected.pixels[index + channel] * coverage
-                    output.pixels[index + channel] = clamp01(blended)
+                    let shaded = image.pixels[index + channel] + delta
+                    let blended = image.pixels[index + channel] * (1 - coverage) + clamp01(shaded) * coverage
+                    output.pixels[index + channel] = blended
                 }
             }
         }

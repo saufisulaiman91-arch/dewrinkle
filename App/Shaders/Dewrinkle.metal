@@ -13,14 +13,19 @@ using namespace metal;
     sample_t coarse,
     sample_t mask,
     float fineKeep,
-    float coarseKeep
+    float foldKeep,
+    float strength
 ) {
-    float4 high = image - detail;
-    float4 fineBand = detail - fine;
-    float4 coarseBand = fine - coarse;
-    float4 corrected = coarse + coarseBand * coarseKeep + fineBand * fineKeep + high;
+    float3 weights = float3(0.299f, 0.587f, 0.114f);
+    float y = dot(image.rgb, weights);
+    float high = y - detail.r;
+    float mid = detail.r - fine.r;
+    float broad = fine.r - coarse.r;
+    float corrected = coarse.r + broad * foldKeep + mid * fineKeep + high;
+    float delta = (corrected - y) * strength;
+    float3 shaded = clamp(image.rgb + float3(delta), float3(0.0f), float3(1.0f));
     float amount = clamp(mask.r, 0.0f, 1.0f);
-    return clamp(mix(image, corrected, amount), float4(0.0f), float4(1.0f));
+    return float4(mix(image.rgb, shaded, amount), image.a);
 }
 
 [[ stitchable ]] float4 effectMask(sample_t garment, sample_t protect, float strength) {

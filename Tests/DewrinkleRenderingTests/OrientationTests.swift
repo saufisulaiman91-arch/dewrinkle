@@ -97,6 +97,44 @@ final class OrientationTests: XCTestCase {
         XCTAssertGreaterThan(rgb.pixels[rgb.offset(0, 1) + 2], 0.5, "right pixel should become the bottom pixel")
     }
 
+    func testFourClockwiseTurnsRestoreTheExportBuffer() throws {
+        var bytes = [UInt8](repeating: 8, count: 4 * 6 * 4)
+        bytes[0] = 255
+        bytes[1] = 0
+        bytes[2] = 0
+        let data = Data(bytes) as CFData
+        guard let provider = CGDataProvider(data: data),
+              let cgImage = CGImage(
+                width: 4,
+                height: 6,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 16,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else {
+            return XCTFail("fixture")
+        }
+        var image = CIImage(cgImage: cgImage)
+        image = ImageGeometry.apply([.clockwise, .clockwise, .clockwise, .clockwise], to: image)
+        let pipeline = RenderPipeline()
+        let displayed = try pipeline.renderPreview(
+            source: image,
+            mask: MaskBuffer(width: 4, height: 6, fill: 0),
+            edits: EditParameters(dewrinkle: DewrinkleParameters(strength: 0, fine: 0, coarse: 0), noise: .off),
+            fullShortSide: 4,
+            pixelScale: 1
+        )
+        XCTAssertEqual(displayed.width, 4)
+        XCTAssertEqual(displayed.height, 6)
+        let rgb = CGBridge.rgbImage(from: displayed)
+        XCTAssertGreaterThan(rgb.pixels[rgb.offset(0, 0)], 0.5, "four right turns should put the red pixel back")
+    }
+
     func testExifOrientationSixIsUpright() throws {
         let source = temporaryJPEG()
         defer { try? FileManager.default.removeItem(at: source) }

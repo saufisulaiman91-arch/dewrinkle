@@ -195,16 +195,18 @@ enum CIGraph {
         }
         let extent = image.extent
         let sigmas = parameters.resolvedSigmas(fullShortSide: fullShortSide, pixelScale: pixelScale)
-        let detail = blur(image, sigma: CGFloat(sigmas.detail), extent: extent)
-        let fine = blur(image, sigma: CGFloat(sigmas.fine), extent: extent)
-        let coarse = blur(image, sigma: CGFloat(sigmas.coarse), extent: extent)
+        let luma = lumaImage(image)
+        let detail = blur(luma, sigma: CGFloat(sigmas.detail), extent: extent)
+        let fine = blur(luma, sigma: CGFloat(sigmas.fine), extent: extent)
+        let coarse = blur(luma, sigma: CGFloat(sigmas.coarse), extent: extent)
         let structureParameters = StructureParameters.resolved(fullShortSide: fullShortSide, pixelScale: pixelScale)
         let protect = structure(of: image, parameters: structureParameters, extent: extent)
-        let garment = scale(mask, to: extent)
+        let feather = max(1.2, CGFloat(fullShortSide) * CGFloat(pixelScale) * 0.004)
+        let softened = blur(scale(mask, to: extent), sigma: feather, extent: extent)
         guard let effectMask = effect.apply(extent: extent, arguments: [
-            garment,
+            softened,
             protect,
-            NSNumber(value: parameters.clampedStrength)
+            NSNumber(value: 1)
         ]) else {
             throw RenderError.renderFailed
         }
@@ -215,7 +217,8 @@ enum CIGraph {
             coarse,
             effectMask,
             NSNumber(value: parameters.fineKeep),
-            NSNumber(value: parameters.coarseKeep)
+            NSNumber(value: parameters.foldKeep),
+            NSNumber(value: parameters.clampedStrength)
         ]) else {
             throw RenderError.renderFailed
         }

@@ -69,8 +69,8 @@ final class CanvasNSView: NSView {
         let key = model.photo?.url.path ?? ""
         let photoChanged = key != documentKey
         documentKey = key
-        beforeImage = model.photo?.preview
-        afterImage = model.previewAfter ?? model.photo?.preview
+        beforeImage = model.orientedOriginal ?? model.photo?.preview
+        afterImage = model.previewAfter ?? model.orientedOriginal ?? model.photo?.preview
         overlayImage = model.maskOverlay
         showBefore = model.showingOriginal
         splitEnabled = model.splitEnabled
@@ -79,9 +79,12 @@ final class CanvasNSView: NSView {
         spaceDown = model.spaceDown
         clickSelect = model.canvasTool == .clickSelect
         referenceWidth = max(model.displayReferenceWidth, 1)
-        if let photo = model.photo {
-            pixelWidth = photo.preview.width
-            pixelHeight = photo.preview.height
+        let nextWidth = model.displayPixelWidth > 0 ? model.displayPixelWidth : (model.photo?.preview.width ?? 0)
+        let nextHeight = model.displayPixelHeight > 0 ? model.displayPixelHeight : (model.photo?.preview.height ?? 0)
+        if nextWidth != pixelWidth || nextHeight != pixelHeight {
+            pixelWidth = nextWidth
+            pixelHeight = nextHeight
+            didFit = false
         }
         rebuildCaches()
         if photoChanged {

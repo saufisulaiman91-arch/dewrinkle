@@ -6,13 +6,17 @@ import Foundation
 /// produced by the Xcode build script when it is in the app bundle.
 enum KernelSources {
     static let recombine = """
-    kernel vec4 dewrinkleRecombine(__sample image, __sample detail, __sample fine, __sample coarse, __sample mask, float fineKeep, float coarseKeep) {
-        vec4 high = image - detail;
-        vec4 fineBand = detail - fine;
-        vec4 coarseBand = fine - coarse;
-        vec4 corrected = coarse + coarseBand * coarseKeep + fineBand * fineKeep + high;
+    kernel vec4 dewrinkleRecombine(__sample image, __sample detail, __sample fine, __sample coarse, __sample mask, float fineKeep, float foldKeep, float strength) {
+        vec3 weights = vec3(0.299, 0.587, 0.114);
+        float y = dot(image.rgb, weights);
+        float high = y - detail.r;
+        float mid = detail.r - fine.r;
+        float broad = fine.r - coarse.r;
+        float corrected = coarse.r + broad * foldKeep + mid * fineKeep + high;
+        float delta = (corrected - y) * strength;
+        vec3 shaded = clamp(image.rgb + vec3(delta), vec3(0.0), vec3(1.0));
         float amount = clamp(mask.r, 0.0, 1.0);
-        return clamp(mix(image, corrected, amount), vec4(0.0), vec4(1.0));
+        return vec4(mix(image.rgb, shaded, amount), image.a);
     }
     """
 

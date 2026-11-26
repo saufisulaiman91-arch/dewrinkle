@@ -42,9 +42,11 @@ struct SidebarView: View {
             Spacer()
             Button { model.addLayer() } label: { Image(systemName: "plus") }
                 .buttonStyle(.borderless)
+                .help("Add a layer with its own mask, de-wrinkle, and noise.")
                 .disabled(model.photo == nil)
             Button { model.deleteSelectedLayer() } label: { Image(systemName: "minus") }
                 .buttonStyle(.borderless)
+                .help("Delete the selected layer. Background stays.")
                 .disabled(model.selectedLayerIsBackground || model.photo == nil)
         }
         .padding(.horizontal, 12)
@@ -63,6 +65,7 @@ struct SidebarView: View {
                         .frame(width: 16)
                 }
                 .buttonStyle(.borderless)
+                .help(layer.visible ? "Hide \(layer.name)." : "Show \(layer.name).")
                 Button {
                     model.selectLayer(layer.id)
                 } label: {
@@ -71,6 +74,7 @@ struct SidebarView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.borderless)
+                .help("Select \(layer.name). Painting and de-wrinkle apply to this layer.")
                 .foregroundStyle(selected ? Theme.accent : Theme.primary)
             }
             .font(.system(size: 12))
@@ -104,7 +108,9 @@ struct SidebarView: View {
                 }
                 HStack {
                     Button("Up") { model.moveSelectedLayer(up: true) }
+                        .help("Move this layer up. Background stays at the bottom.")
                     Button("Down") { model.moveSelectedLayer(up: false) }
+                        .help("Move this layer down. Background stays at the bottom.")
                 }
                 .font(.system(size: 11))
                 .buttonStyle(.borderless)
@@ -145,5 +151,6 @@ struct SidebarView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.borderless)
+        .help("Jump to \(row.name). Later steps stay in the list until you make a new edit. Undo is ⌘Z, redo is ⇧⌘Z.")
     }
 }

@@ -57,5 +57,6 @@ struct PercentSlider: View {
                 .foregroundStyle(Theme.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .help("\(title). \(hint)")
     }
 }

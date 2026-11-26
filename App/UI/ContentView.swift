@@ -131,52 +131,68 @@ struct ContentView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
-            Button { model.openPanel() } label: { Label("Open", systemImage: "folder") }
-            Button { model.requestSave() } label: { Label("Save", systemImage: "square.and.arrow.down") }
+            tool("Open a TIFF, JPEG, or PNG. (⌘O)", systemImage: "folder", title: "Open") { model.openPanel() }
+            tool("Save over the file you opened, after a confirm. (⌘S)", systemImage: "square.and.arrow.down", title: "Save") { model.requestSave() }
                 .disabled(model.photo == nil)
-            Button { model.exportPanel() } label: { Label("Export", systemImage: "square.and.arrow.up") }
+            tool("Write a new file next to the original. (⌘E)", systemImage: "square.and.arrow.up", title: "Export") { model.exportPanel() }
                 .disabled(model.photo == nil)
         }
         ToolbarItemGroup(placement: .principal) {
-            Button { model.undo() } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
+            tool("Step back through the history list. (⌘Z)", systemImage: "arrow.uturn.backward", title: "Undo") { model.undo() }
                 .disabled(!model.canUndo)
-            Button { model.redo() } label: { Label("Redo", systemImage: "arrow.uturn.forward") }
+            tool("Step forward through the history list. (⇧⌘Z)", systemImage: "arrow.uturn.forward", title: "Redo") { model.redo() }
                 .disabled(!model.canRedo)
-            Button { model.showBeforeLocked.toggle() } label: {
-                Label("Before", systemImage: model.showBeforeLocked ? "eye.fill" : "eye")
+            tool("Hold the original upright photo. (⌘\\)", systemImage: model.showBeforeLocked ? "eye.fill" : "eye", title: "Before") {
+                model.showBeforeLocked.toggle()
             }
             .disabled(model.photo == nil)
-            Button { model.splitEnabled.toggle() } label: {
-                Label("Split", systemImage: "rectangle.split.2x1")
+            tool("Split the original and the edit. (Y)", systemImage: "rectangle.split.2x1", title: "Split") {
+                model.splitEnabled.toggle()
             }
             .disabled(model.photo == nil)
-            Button {
-                model.maskOverlayVisible.toggle()
-                model.schedulePreview()
-            } label: {
-                Label("Mask", systemImage: model.maskOverlayVisible ? "circle.lefthalf.filled" : "circle")
+            tool("Show or hide the red mask. (M)", systemImage: model.maskOverlayVisible ? "circle.lefthalf.filled" : "circle", title: "Mask") {
+                model.toggleMaskOverlay()
             }
             .disabled(model.photo == nil)
         }
         ToolbarItemGroup(placement: .primaryAction) {
-            Button { model.rotate(clockwise: false) } label: { Label("Rotate Left", systemImage: "rotate.left") }
-                .disabled(model.photo == nil)
-            Button { model.rotate(clockwise: true) } label: { Label("Rotate Right", systemImage: "rotate.right") }
-                .disabled(model.photo == nil)
-            Button {
+            tool("Rotate the photo and its masks 90° left. (⌘[)", systemImage: "rotate.left", title: "Left") {
+                model.rotate(clockwise: false)
+            }
+            .disabled(model.photo == nil)
+            tool("Rotate the photo and its masks 90° right. (⌘])", systemImage: "rotate.right", title: "Right") {
+                model.rotate(clockwise: true)
+            }
+            .disabled(model.photo == nil)
+            tool("Paint de-wrinkle onto the cloth. [ and ] change size. Option-drag erases. (B)", systemImage: "paintbrush.pointed", title: "Draw") {
                 model.canvasTool = .brush
                 model.brush.mode = .paint
-            } label: { Label("Draw", systemImage: "paintbrush.pointed") }
+            }
+            .disabled(model.photo == nil)
+            tool("Click the cloth, hijab, skin, or background to fill the mask. Shift adds, Option subtracts.", systemImage: "wand.and.rays", title: "Click") {
+                model.canvasTool = .clickSelect
+            }
+            .disabled(model.photo == nil)
+            tool("Fill the mask with the garment so you can refine it. (A)", systemImage: "person.crop.rectangle", title: "Auto") {
+                model.detectGarment()
+            }
+            .disabled(model.photo == nil)
+            tool("Fit the photo in the window. (⌘0)", systemImage: "arrow.up.left.and.arrow.down.right", title: "Fit") { model.fit() }
                 .disabled(model.photo == nil)
-            Button { model.canvasTool = .clickSelect } label: { Label("Click Mask", systemImage: "wand.and.rays") }
-                .disabled(model.photo == nil)
-            Button { model.detectGarment() } label: { Label("Auto", systemImage: "person.crop.rectangle") }
-                .disabled(model.photo == nil)
-            Button { model.fit() } label: { Label("Fit", systemImage: "arrow.up.left.and.arrow.down.right") }
-                .disabled(model.photo == nil)
-            Button { model.actualPixels() } label: { Label("1:1", systemImage: "1.circle") }
+            tool("Show one photo pixel per screen pixel. (⌘1)", systemImage: "1.circle", title: "1:1") { model.actualPixels() }
                 .disabled(model.photo == nil)
         }
+    }
+
+    private func tool(_ help: String, systemImage: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 1) {
+                Image(systemName: systemImage)
+                Text(title)
+                    .font(.system(size: 9))
+            }
+        }
+        .help(help)
     }
 
     private var errorPresented: Binding<Bool> {

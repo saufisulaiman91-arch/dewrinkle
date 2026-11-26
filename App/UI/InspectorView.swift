@@ -21,11 +21,28 @@ struct InspectorView: View {
 
     private var effectSection: some View {
         InspectorSection(title: "De-wrinkle") {
+            HStack {
+                Button("Natural") { model.usePreset(.standard) }
+                    .help("Natural preset. Strength about 50%, broad folds and satin sheen stay. (no shortcut)")
+                Button("Strong") { model.usePreset(.strong) }
+                    .help("Strong preset. More of the crease shading is lifted. Broad folds are still partly kept.")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
             PercentSlider(
                 title: "Strength",
-                hint: "How much of the smoothed cloth replaces the original. 70 is the working default.",
+                hint: "How far crease shading moves toward smooth cloth. 50 is the natural default.",
                 percent: binding(\.parameters.strength),
                 onCommit: { model.commitHistory("De-wrinkle strength") }
+            )
+            PercentSlider(
+                title: "Preserve folds",
+                hint: "Keeps wide highlight and shadow. Higher leaves the drape of the skirt alone.",
+                percent: Binding(
+                    get: { Double(model.parameters.preserveFolds * 100) },
+                    set: { model.parameters.preserveFolds = Float($0 / 100) }
+                ),
+                onCommit: { model.commitHistory("Preserve folds") }
             )
             PercentSlider(
                 title: "Fine wrinkles",
@@ -59,6 +76,7 @@ struct InspectorView: View {
                 .buttonStyle(.borderless)
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.accent)
+                .help("Put de-wrinkle back to the Natural preset.")
         }
     }
 
@@ -98,6 +116,7 @@ struct InspectorView: View {
                 .buttonStyle(.borderless)
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.accent)
+                .help("Turn noise reduction off on this layer.")
         }
     }
 
@@ -112,6 +131,7 @@ struct InspectorView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .help("Paint adds de-wrinkle. Restore erases it. Option-drag also erases. (B to paint, E to erase)")
             PercentSlider(
                 title: "Size",
                 hint: "Full-resolution pixels. [ and ] change it. Option-drag restores.",
@@ -150,20 +170,27 @@ struct InspectorView: View {
                 Button("Auto suggest") { model.detectGarment() }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.accent)
+                    .help("Fill this layer with the garment, including the hijab and not the face. (A)")
                 Button("Clear") { model.clearMask() }
                     .buttonStyle(.bordered)
+                    .help("Clear this layer’s mask so de-wrinkle stops.")
             }
             .controlSize(.small)
             HStack(spacing: 8) {
                 Button("Subject") { model.applyQuickMask("Select subject") }
+                    .help("Select the person. Face and hands stay in this mask.")
                 Button("Clothes") { model.applyQuickMask("Select clothing") }
+                    .help("Select clothing, leaving out skin and the hijab.")
             }
             .controlSize(.small)
             .buttonStyle(.bordered)
             HStack(spacing: 8) {
                 Button("Skin") { model.applyQuickMask("Select skin") }
+                    .help("Select face and hands, grown from the detected skin. Pink satin is not treated as skin.")
                 Button("Hijab") { model.applyQuickMask("Select hijab") }
+                    .help("Select the hijab around the face, stopping at the skin and the dress.")
                 Button("Ground") { model.applyQuickMask("Select background") }
+                    .help("Select everything that is not the person.")
             }
             .controlSize(.small)
             .buttonStyle(.bordered)
@@ -173,6 +200,7 @@ struct InspectorView: View {
             .buttonStyle(.borderless)
             .font(.system(size: 12))
             .foregroundStyle(Theme.accent)
+            .help("Click the cloth, hijab, skin, or background. Shift-click adds, Option-click subtracts.")
             PercentSlider(
                 title: "Select tolerance",
                 hint: "How far Select Hijab and a missed click grow into similar colour. Hijab stays off the face and off the dress.",
@@ -181,7 +209,9 @@ struct InspectorView: View {
             )
             HStack {
                 Button("Invert mask") { model.invertSelectedMask() }
+                    .help("Swap painted and unpainted parts of this layer’s mask.")
                 Button("Feather") { model.featherSelectedMask() }
+                    .help("Soften the mask edge. De-wrinkle also feathers the brush as you paint.")
             }
             .buttonStyle(.borderless)
             .font(.system(size: 12))
@@ -212,6 +242,7 @@ struct InspectorView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .help("JPEG, 16-bit TIFF, or 16-bit PNG. Export is ⌘E. A rotation is saved in the pixels, tagged upright.")
             if model.exportSettings.container == .jpeg {
                 PercentSlider(
                     title: "JPEG quality",
@@ -276,8 +307,9 @@ struct InspectorView: View {
                 .frame(width: 36, alignment: .trailing)
                 .foregroundStyle(Theme.primary)
         }
-        .font(.system(size: 12))
-        .onChange(of: value.wrappedValue) { _, _ in
+            .font(.system(size: 12))
+            .help("\(title) radius in full-resolution pixels. Leave custom radii off to use the frame size.")
+            .onChange(of: value.wrappedValue) { _, _ in
             model.applyRadiusFields()
         }
     }

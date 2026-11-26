@@ -47,6 +47,9 @@ final class EditorModel: ObservableObject {
     @Published var zoomPercent = 100
     @Published var viewportAction: ViewportAction = .none
     @Published var viewportTicket = 0
+    @Published var displayPixelWidth = 0
+    @Published var displayPixelHeight = 0
+    @Published var orientedOriginal: CGImage?
     @Published var detailRadius: Double = 8
     @Published var fineRadius: Double = 66
     @Published var coarseRadius: Double = 165
@@ -127,6 +130,7 @@ final class EditorModel: ObservableObject {
             splitEnabled = false
             history.reset(name: "Original", state: snapshot())
             publishHistory()
+            refreshDisplaySize()
             syncRadiusFields()
             status = loaded.statusLine + "  ·  paint the creases you want smoothed"
             isBusy = false
@@ -195,18 +199,28 @@ final class EditorModel: ObservableObject {
         renderTask = Task { [pipeline] in
             try? await Task.sleep(nanoseconds: 28_000_000)
             guard !Task.isCancelled else { return }
-            let rendered: CGImage? = try? await Self.offMain {
-                try pipeline.renderStackedPreview(
+            let renderedPair: (CGImage, CGImage)? = try? await Self.offMain {
+                let base = try pipeline.renderStackedPreview(
+                    source: source,
+                    passes: [],
+                    fullShortSide: fullShort,
+                    pixelScale: pixelScale
+                )
+                let edited = try pipeline.renderStackedPreview(
                     source: source,
                     passes: passes,
                     fullShortSide: fullShort,
                     pixelScale: pixelScale
                 )
+                return (base, edited)
             }
             let overlay = showOverlay ? overlayMask.flatMap { CGBridge.overlayImage($0) } : nil
             guard generation == self.renderGeneration else { return }
-            if let rendered {
-                self.previewAfter = rendered
+            if let renderedPair {
+                self.orientedOriginal = renderedPair.0
+                self.previewAfter = renderedPair.1
+                self.displayPixelWidth = renderedPair.1.width
+                self.displayPixelHeight = renderedPair.1.height
             }
             self.maskOverlay = overlay
         }
@@ -262,6 +276,12 @@ final class EditorModel: ObservableObject {
     func jumpHistory(to index: Int) {
         guard let state = history.jump(to: index) else { return }
         restore(state)
+    }
+
+    func usePreset(_ preset: DewrinkleParameters) {
+        parameters = preset
+        commitHistory(preset.preserveFolds > 0.5 ? "Natural de-wrinkle" : "Strong de-wrinkle")
+        schedulePreview()
     }
 
     func resetEffect() {
@@ -462,13 +482,19 @@ final class EditorModel: ObservableObject {
     func rotate(clockwise: Bool) {
         let turn: PictureTurn = clockwise ? .clockwise : .counterClockwise
         apply(turn)
+        publishTurnedFrame(turn)
         commitHistory(clockwise ? "Rotate right" : "Rotate left")
         fit()
+        schedulePreview()
     }
 
     func flip(horizontal: Bool) {
-        apply(horizontal ? .flipHorizontal : .flipVertical)
+        let turn: PictureTurn = horizontal ? .flipHorizontal : .flipVertical
+        apply(turn)
+        publishTurnedFrame(turn)
         commitHistory(horizontal ? "Flip horizontal" : "Flip vertical")
+        fit()
+        schedulePreview()
     }
 
     func addLayer() {
@@ -611,6 +637,17 @@ final class EditorModel: ObservableObject {
         schedulePreview()
     }
 
+    /// Turns the picture on screen immediately, using the same mapping as the masks.
+    /// The Core Image preview replaces it once the edit has been re-rendered.
+    private func publishTurnedFrame(_ turn: PictureTurn) {
+        if let current = previewAfter {
+            previewAfter = CGBridge.cgImage(from: CGBridge.rgbImage(from: current).applying(turn))
+        }
+        orientedOriginal = CGBridge.cgImage(from: orientedRGB())
+        maskOverlay = nil
+        refreshDisplaySize()
+    }
+
     private func apply(_ turn: PictureTurn) {
         guard let photo else { return }
         let size = orientedSize(width: photo.orientedWidth, height: photo.orientedHeight)
@@ -702,6 +739,17 @@ final class EditorModel: ObservableObject {
         return selectedMaskDocument().rasterize(width: size.width, height: size.height, extra: extra)
     }
 
+    private func refreshDisplaySize() {
+        guard let photo else {
+            displayPixelWidth = 0
+            displayPixelHeight = 0
+            return
+        }
+        let size = orientedPreviewSize(photo)
+        displayPixelWidth = size.width
+        displayPixelHeight = size.height
+    }
+
     private func orientedPreviewSize(_ photo: LoadedPhoto) -> (width: Int, height: Int) {
         orientedSize(width: photo.preview.width, height: photo.preview.height)
     }
@@ -755,6 +803,7 @@ final class EditorModel: ObservableObject {
     }
 
     private func restore(_ state: EditSnapshot) {
+        let turnsChanged = state.turns != turns
         suppressLayerSync = true
         turns = state.turns
         layers = state.layers
@@ -766,6 +815,14 @@ final class EditorModel: ObservableObject {
         }
         suppressLayerSync = false
         inFlight = nil
+        if turnsChanged {
+            let frame = CGBridge.cgImage(from: orientedRGB())
+            orientedOriginal = frame
+            previewAfter = frame
+            maskOverlay = nil
+            refreshDisplaySize()
+            fit()
+        }
         publishHistory()
         schedulePreview()
     }

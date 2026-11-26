@@ -130,9 +130,10 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(sigmas.detail, 7.7056, accuracy: 0.01)
         XCTAssertEqual(sigmas.fine, 66.048, accuracy: 0.01)
         XCTAssertEqual(sigmas.coarse, 165.12, accuracy: 0.01)
-        XCTAssertEqual(DewrinkleParameters.standard.strength, 0.70, accuracy: 0.0001)
-        XCTAssertEqual(DewrinkleParameters.standard.fine, 0.80, accuracy: 0.0001)
-        XCTAssertEqual(DewrinkleParameters.standard.coarse, 0.45, accuracy: 0.0001)
+        XCTAssertEqual(DewrinkleParameters.standard.strength, 0.50, accuracy: 0.0001)
+        XCTAssertEqual(DewrinkleParameters.standard.fine, 0.62, accuracy: 0.0001)
+        XCTAssertEqual(DewrinkleParameters.standard.coarse, 0.18, accuracy: 0.0001)
+        XCTAssertEqual(DewrinkleParameters.standard.preserveFolds, 0.75, accuracy: 0.0001)
         let preview = DewrinkleParameters.standard.resolvedSigmas(fullShortSide: 5504, pixelScale: 1366 / 5504)
         XCTAssertEqual(preview.coarse / sigmas.coarse, 1366 / 5504, accuracy: 0.001)
     }
@@ -480,6 +481,110 @@ final class EngineTests: XCTestCase {
         } catch {
             XCTFail("unexpected error \(error)")
         }
+    }
+
+    func testFourClockwiseTurnsReturnThePixelAndTheBrush() {
+        var mask = MaskBuffer(width: 6, height: 4, fill: 0)
+        mask.values[mask.index(1, 0)] = 1
+        var document = MaskDocument()
+        document.setBase(mask)
+        document.add(BrushStroke(
+            settings: BrushSettings(radius: 2, hardness: 1, opacity: 1, mode: .paint),
+            referenceWidth: 6,
+            points: [SIMD2<Float>(0.1, 0.1)]
+        ))
+        var width = 6
+        var height = 4
+        var turned = document
+        for _ in 0..<4 {
+            turned = turned.applying(.clockwise, referenceWidth: width, referenceHeight: height)
+            swap(&width, &height)
+        }
+        let raster = turned.rasterize(width: 6, height: 4)
+        XCTAssertGreaterThan(raster.values[raster.index(1, 0)], 0.5)
+        let point = [PictureTurn.clockwise, .clockwise, .clockwise, .clockwise].reduce(SIMD2<Float>(0.2, 0.8)) { $1.map($0) }
+        XCTAssertEqual(point.x, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(point.y, 0.8, accuracy: 0.0001)
+    }
+
+    func testNaturalSmoothsACreaseAndKeepsSheenWeaveAndChroma() {
+        let width = 120
+        let height = 24
+        var image = RGBImage(width: width, height: height, fill: 0)
+        for y in 0..<height {
+            for x in 0..<width {
+                let sheen = 0.08 * sin(2 * Float.pi * Float(x) / 90)
+                let crease = 0.16 * sin(2 * Float.pi * Float(x) / 8)
+                let weave: Float = (x + y) % 2 == 0 ? 0.05 : -0.05
+                let luma = 0.55 + sheen + crease + weave
+                image.setPixel(x, y, r: luma + 0.08, g: luma, b: luma - 0.05)
+            }
+        }
+        var natural = DewrinkleParameters.standard
+        natural.strength = 1
+        natural.fine = 1
+        natural.coarse = 0
+        natural.preserveFolds = 1
+        natural.detailRadiusOverride = 0.7
+        natural.fineRadiusOverride = 3.5
+        natural.coarseRadiusOverride = 20
+        let smoothed = FrequencySeparation.apply(
+            image,
+            mask: MaskBuffer(width: width, height: height, fill: 1),
+            parameters: natural,
+            structure: noProtection
+        )
+        XCTAssertLessThan(peakToPeak(smoothed), peakToPeak(image) * 0.55)
+        let sheenBefore = abs(image.pixels[image.offset(0, 12)] - image.pixels[image.offset(22, 12)])
+        let sheenAfter = abs(smoothed.pixels[smoothed.offset(0, 12)] - smoothed.pixels[smoothed.offset(22, 12)])
+        XCTAssertGreaterThan(sheenAfter, sheenBefore * 0.65)
+        var weaveDrift: Float = 0
+        for x in stride(from: 2, to: width - 2, by: 2) {
+            let before = image.pixels[image.offset(x, 4)] - image.pixels[image.offset(x + 1, 4)]
+            let after = smoothed.pixels[smoothed.offset(x, 4)] - smoothed.pixels[smoothed.offset(x + 1, 4)]
+            weaveDrift += abs(before - after)
+        }
+        XCTAssertLessThan(weaveDrift / Float(width / 2), 0.06)
+        let index = image.offset(30, 8)
+        let chromaBefore = image.pixels[index] - image.pixels[index + 2]
+        let chromaAfter = smoothed.pixels[index] - smoothed.pixels[index + 2]
+        XCTAssertEqual(chromaAfter, chromaBefore, accuracy: 0.03)
+    }
+
+    func testStrokeFollowsTheTurnAndTheRadiusReferenceSwaps() {
+        var document = MaskDocument()
+        document.add(BrushStroke(
+            settings: BrushSettings(radius: 1.2, hardness: 1, opacity: 1, mode: .paint),
+            referenceWidth: 40,
+            points: [SIMD2<Float>(0.05, 0.08)]
+        ))
+        let before = document.rasterize(width: 40, height: 20)
+        XCTAssertGreaterThan(before.values[before.index(2, 1)], 0.4)
+        let turned = document.applying(.clockwise, referenceWidth: 40, referenceHeight: 20)
+        XCTAssertEqual(turned.strokes.first?.referenceWidth, 20)
+        let mapped = PictureTurn.clockwise.map(SIMD2<Float>(0.05, 0.08))
+        let after = turned.rasterize(width: 20, height: 40)
+        let x = min(max(Int((mapped.x * 20).rounded()) - 1, 0), 19)
+        let y = min(max(Int((mapped.y * 40).rounded()) - 1, 0), 39)
+        XCTAssertGreaterThan(after.values[after.index(x, y)], 0.4)
+        XCTAssertLessThan(after.values[after.index(1, 1)], 0.15)
+    }
+
+    func testRotationHistoryRestoresTheUprightMask() {
+        var upright = MaskDocument()
+        var base = MaskBuffer(width: 5, height: 3, fill: 0)
+        base.values[base.index(0, 0)] = 1
+        upright.setBase(base)
+        var history = HistoryStack<MaskDocument>()
+        history.reset(name: "Original", state: upright)
+        let right = upright.applying(.clockwise, referenceWidth: 5, referenceHeight: 3)
+        history.commit(name: "Rotate right", state: right)
+        let again = right.applying(.clockwise, referenceWidth: 3, referenceHeight: 5)
+        history.commit(name: "Rotate right", state: again)
+        let restored = history.undo()
+        XCTAssertEqual(restored?.base?.width, 3)
+        XCTAssertEqual(history.undo()?.base?.width, 5)
+        XCTAssertEqual(history.redo()?.base?.width, 3)
     }
 
     func testClockwiseTurnMovesTheTopLeftToTheTopRight() {

@@ -40,6 +40,19 @@ public struct RGBImage: Equatable, Sendable {
         pixels[index + 2] = b
     }
 
+    public init(lumaOf image: RGBImage) {
+        self.width = image.width
+        self.height = image.height
+        let plane = image.luminancePlane()
+        var pixels = [Float](repeating: 0, count: plane.count * 3)
+        for index in plane.indices {
+            pixels[index * 3] = plane[index]
+            pixels[index * 3 + 1] = plane[index]
+            pixels[index * 3 + 2] = plane[index]
+        }
+        self.pixels = pixels
+    }
+
     public func luminancePlane() -> [Float] {
         var plane = [Float](repeating: 0, count: pixelCount)
         var source = 0
