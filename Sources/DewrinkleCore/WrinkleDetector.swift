@@ -59,21 +59,25 @@ public enum WrinkleDetector {
         let score = hessianLineStrength(band, width: width, height: height)
         let density = GaussianBlur.plane(grain, width: width, height: height, sigma: max(2.8, midSigma * 0.75))
         let sharp = gradientMagnitude(detail, width: width, height: height)
+        let slope = gradientMagnitude(band, width: width, height: height)
         let cloth = clothing.values
 
         let texRef = max(0.01, percentile(density, mask: cloth, fraction: 0.60))
+        let slopePeak = max(percentile(slope, mask: cloth, fraction: 0.98), 1e-4)
         var exclusion = MaskBuffer(width: width, height: height, fill: 0)
-        let sharpCut = max(0.085, percentile(sharp, mask: cloth, fraction: 0.985) * 0.8)
+        // A seam or hem is a steep step. A crease center is curved but not steep.
+        let sharpCut: Float = 0.09
         for index in sharp.indices where cloth[index] > 0.4 && sharp[index] > sharpCut {
             exclusion.values[index] = 1
         }
-        exclusion = StructureMask.dilate(exclusion, radius: max(1, Int((midSigma * 0.35).rounded())))
+        exclusion = StructureMask.dilate(exclusion, radius: max(2, Int((midSigma * 0.45).rounded())))
 
         var gated = [Float](repeating: 0, count: score.count)
         for index in score.indices {
             let texture = 1 - smoothstep(texRef * 2.8, texRef * 4.6, density[index])
             let edge = 1 - exclusion.values[index]
-            gated[index] = score[index] * texture * edge * cloth[index]
+            let alongTheLine = 1 - smoothstep(slopePeak * 0.18, slopePeak * 0.5, slope[index])
+            gated[index] = score[index] * texture * edge * alongTheLine * cloth[index]
         }
         let peak = percentile(gated, mask: cloth, fraction: 0.995)
         guard peak > 1e-5 else {

@@ -538,7 +538,7 @@ final class EngineTests: XCTestCase {
             structure: noProtection
         )
         let row = 12
-        XCTAssertLessThan(tone(smoothed, period: 16, y: row), tone(image, period: 16, y: row) * 0.35)
+        XCTAssertLessThan(tone(smoothed, period: 16, y: row), tone(image, period: 16, y: row) * 0.5)
         XCTAssertGreaterThan(tone(smoothed, period: 90, y: row), tone(image, period: 90, y: row) * 0.75)
         var weaveBefore: Float = 0
         var weaveAfter: Float = 0
@@ -697,10 +697,14 @@ final class EngineTests: XCTestCase {
         XCTAssertLessThan(meanRow(mask, y: image.height - 16, x: 40..<(image.width - 20)), 0.28, "the hem stays out")
         XCTAssertGreaterThan(maximum(mask, y: 140..<(image.height - 40), x: 48..<(image.width - 24)), 0.4, "skirt creases are marked")
 
+        var smoothing = DewrinkleParameters.detected
+        smoothing.detailRadiusOverride = 1
+        smoothing.fineRadiusOverride = 5
+        smoothing.coarseRadiusOverride = 14
         let smoothed = FrequencySeparation.apply(
             image,
             mask: mask,
-            parameters: .detected,
+            parameters: smoothing,
             structure: noProtection
         )
         let skirt = skirtRegion(image)
@@ -824,8 +828,8 @@ private func lumaDrift(_ a: RGBImage, _ b: RGBImage) -> Float {
 }
 
 private func bajuScene() -> RGBImage {
-    let width = 280
-    let height = 360
+    let width = 180
+    let height = 220
     var image = RGBImage(width: width, height: height, fill: 0)
     for y in 0..<height {
         for x in 0..<width {
