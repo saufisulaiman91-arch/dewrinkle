@@ -196,6 +196,13 @@ public enum FrequencySeparation {
         let protection = structure.map {
             StructureMask.make(image: image, parameters: $0)
         }
+        var centerGate = [Float](repeating: 0, count: luma.count)
+        for index in luma.indices {
+            let lineGate = smoothstep(peak * 0.18, peak * 0.48 + 1e-5, ridge[index])
+            let contrast = smoothstep(grainLevel[index] * 1.2 + 0.006, grainLevel[index] * 2.2 + 0.02, abs(lines[index]))
+            centerGate[index] = lineGate * contrast
+        }
+        let wideGate = GaussianBlur.plane(centerGate, width: width, height: height, sigma: max(1.2, sigmas.fine * 0.55))
 
         var output = image
         for y in 0..<height {
@@ -206,14 +213,11 @@ public enum FrequencySeparation {
                     coverage *= 1 - protection.values[index]
                 }
                 if coverage <= 0 { continue }
-                let lineGate = smoothstep(peak * 0.22, peak * 0.55 + 1e-5, ridge[index])
-                let contrast = smoothstep(grainLevel[index] * 1.4 + 0.008, grainLevel[index] * 2.6 + 0.028, abs(lines[index]))
-                let fineGate = lineGate * contrast
                 let folds = fine[index] - deep[index]
                 let drape = deep[index] - base[index]
                 let edgeWeight = 1 - smoothstep(0.035, 0.12, edges[index])
                 let delta = (
-                    -(lines[index] * fineGate + grain[index] * fineGate * 0.35) * fineAmount
+                    -(lines[index] * wideGate[index] + grain[index] * centerGate[index] * 0.35) * fineAmount
                     - (folds * 0.9 + drape * structureSoften) * deepAmount
                 ) * edgeWeight
                 let pixel = image.offset(x, y)
