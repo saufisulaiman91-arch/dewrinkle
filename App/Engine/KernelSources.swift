@@ -13,12 +13,14 @@ enum KernelSources {
         float lines = detail.r - fine.r;
         float folds = fine.r - deep.r;
         float drape = deep.r - base.r;
+        float grainAbs = grain < 0.0 ? -grain : grain;
+        float linesAbs = lines < 0.0 ? -lines : lines;
         float lineSpan = max(0.02 - 0.004, 0.0001);
         float lineT = clamp((ridge.r - 0.004) / lineSpan, 0.0, 1.0);
         float lineGate = lineT * lineT * (3.0 - 2.0 * lineT);
-        float c0 = abs(grain) * 1.4 + 0.008;
-        float c1 = abs(grain) * 2.6 + 0.028;
-        float cT = clamp((abs(lines) - c0) / max(c1 - c0, 0.0001), 0.0, 1.0);
+        float c0 = grainAbs * 1.4 + 0.008;
+        float c1 = grainAbs * 2.6 + 0.028;
+        float cT = clamp((linesAbs - c0) / max(c1 - c0, 0.0001), 0.0, 1.0);
         float contrast = cT * cT * (3.0 - 2.0 * cT);
         float fineGate = lineGate * contrast;
         float delta = (-(lines * fineGate + grain * fineGate * 0.35) * fineAmt - (folds * 0.9 + drape * structureSoften) * deepAmt) * mask.r;
@@ -44,8 +46,12 @@ enum KernelSources {
         float ixy = (br - bl - tr + tl) * 0.25;
         float half = (ixx + iyy) * 0.5;
         float root = sqrt(max(half * half - (ixx * iyy - ixy * ixy), 0.0));
-        float major = max(abs(half + root), abs(half - root));
-        float minor = min(abs(half + root), abs(half - root));
+        float first = half + root;
+        float second = half - root;
+        if (first < 0.0) { first = -first; }
+        if (second < 0.0) { second = -second; }
+        float major = first > second ? first : second;
+        float minor = first < second ? first : second;
         float score = major * major / (major + minor + 0.0001);
         return vec4(score, score, score, 1.0);
     }
