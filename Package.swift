@@ -6,6 +6,9 @@ import PackageDescription
 
 let package = Package(
     name: "Dewrinkle",
+    platforms: [
+        .macOS(.v14)
+    ],
     products: [
         .library(name: "DewrinkleCore", targets: ["DewrinkleCore"])
     ],
