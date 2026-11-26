@@ -514,7 +514,7 @@ final class EngineTests: XCTestCase {
         for y in 0..<height {
             for x in 0..<width {
                 let sheen = 0.08 * sin(2 * Float.pi * Float(x) / 90)
-                let crease = 0.16 * sin(2 * Float.pi * Float(x) / 8)
+                let crease = 0.16 * sin(2 * Float.pi * Float(x) / 16)
                 let weave: Float = (x + y) % 2 == 0 ? 0.05 : -0.05
                 let luma = 0.55 + sheen + crease + weave
                 image.setPixel(x, y, r: luma + 0.08, g: luma, b: luma - 0.05)
@@ -525,9 +525,9 @@ final class EngineTests: XCTestCase {
         natural.fine = 1
         natural.coarse = 0
         natural.preserveFolds = 1
-        natural.detailRadiusOverride = 0.45
-        natural.fineRadiusOverride = 4
-        natural.coarseRadiusOverride = 18
+        natural.detailRadiusOverride = 1.1
+        natural.fineRadiusOverride = 6
+        natural.coarseRadiusOverride = 22
         let smoothed = FrequencySeparation.apply(
             image,
             mask: MaskBuffer(width: width, height: height, fill: 1),
@@ -535,7 +535,7 @@ final class EngineTests: XCTestCase {
             structure: noProtection
         )
         let row = 12
-        XCTAssertLessThan(tone(smoothed, period: 8, y: row), tone(image, period: 8, y: row) * 0.35)
+        XCTAssertLessThan(tone(smoothed, period: 16, y: row), tone(image, period: 16, y: row) * 0.35)
         XCTAssertGreaterThan(tone(smoothed, period: 90, y: row), tone(image, period: 90, y: row) * 0.75)
         var weaveBefore: Float = 0
         var weaveAfter: Float = 0
