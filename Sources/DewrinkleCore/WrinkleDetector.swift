@@ -62,15 +62,16 @@ public enum WrinkleDetector {
         let slope = gradientMagnitude(band, width: width, height: height)
         let cloth = clothing.values
 
-        let texRef = max(0.01, percentile(density, mask: cloth, fraction: 0.60))
+        let texRef = max(0.008, percentile(density, mask: cloth, fraction: 0.60))
         let slopePeak = max(percentile(slope, mask: cloth, fraction: 0.98), 1e-4)
         var exclusion = MaskBuffer(width: width, height: height, fill: 0)
-        // A seam or hem is a steep step. A crease center is curved but not steep.
-        let sharpCut: Float = 0.09
-        for index in sharp.indices where cloth[index] > 0.4 && sharp[index] > sharpCut {
+        // Seams, hems, and beading are thin and high-contrast, so they live in the
+        // grain. A soft crease is wider than the detail blur and barely shows up here.
+        let grainCut = max(0.045, texRef * 2.2)
+        for index in grain.indices where cloth[index] > 0.4 && (grain[index] > grainCut || sharp[index] > 0.09) {
             exclusion.values[index] = 1
         }
-        exclusion = StructureMask.dilate(exclusion, radius: max(2, Int((midSigma * 0.45).rounded())))
+        exclusion = StructureMask.dilate(exclusion, radius: max(2, Int((midSigma * 0.5).rounded())))
 
         var gated = [Float](repeating: 0, count: score.count)
         for index in score.indices {
