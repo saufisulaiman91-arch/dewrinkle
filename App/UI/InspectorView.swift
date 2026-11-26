@@ -9,7 +9,6 @@ struct InspectorView: View {
             VStack(alignment: .leading, spacing: 22) {
                 brushSection
                 effectSection
-                noiseSection
                 maskSection
                 outputSection
             }
@@ -21,40 +20,26 @@ struct InspectorView: View {
 
     private var effectSection: some View {
         InspectorSection(title: "De-wrinkle") {
-            HStack {
-                Button("Natural") { model.usePreset(.standard) }
-                    .help("Natural preset. Strength about 50%, broad folds and satin sheen stay. (no shortcut)")
-                Button("Strong") { model.usePreset(.strong) }
-                    .help("Strong preset. More of the crease shading is lifted. Broad folds are still partly kept.")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
             PercentSlider(
-                title: "Strength",
-                hint: "How far crease shading moves toward smooth cloth. 50 is the natural default.",
-                percent: binding(\.parameters.strength),
-                onCommit: { model.commitHistory("De-wrinkle strength") }
-            )
-            PercentSlider(
-                title: "Preserve folds",
-                hint: "Keeps wide highlight and shadow. Higher leaves the drape of the skirt alone.",
+                title: "De-wrinkle Clothing",
+                hint: "Sets both sliders below. 50 is the natural amount. 100 is the strongest.",
                 percent: Binding(
-                    get: { Double(model.parameters.preserveFolds * 100) },
-                    set: { model.parameters.preserveFolds = Float($0 / 100) }
+                    get: { Double(model.parameters.strength * 100) },
+                    set: { model.setClothingLevel($0) }
                 ),
-                onCommit: { model.commitHistory("Preserve folds") }
+                onCommit: { model.commitHistory("De-wrinkle clothing") }
             )
             PercentSlider(
-                title: "Fine wrinkles",
-                hint: "Small creases and crumpling. Weave stays in the high layer and is not blurred.",
+                title: "Remove Fine Wrinkles",
+                hint: "Sharp crease lines only. Fabric grain stays.",
                 percent: binding(\.parameters.fine),
                 onCommit: { model.commitHistory("Fine wrinkles") }
             )
             PercentSlider(
-                title: "Coarse wrinkles",
-                hint: "Broader folds. The radius stops short of a hijab or abaya’s drape.",
+                title: "Remove Deep Wrinkles",
+                hint: "Lifts fold shadows and lowers fold highlights. The shape of the body stays.",
                 percent: binding(\.parameters.coarse),
-                onCommit: { model.commitHistory("Coarse wrinkles") }
+                onCommit: { model.commitHistory("Deep wrinkles") }
             )
             Text(model.radiusCaption())
                 .font(.system(size: 11, design: .monospaced))
@@ -77,46 +62,6 @@ struct InspectorView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.accent)
                 .help("Put de-wrinkle back to the Natural preset.")
-        }
-    }
-
-    private var noiseSection: some View {
-        InspectorSection(title: "Noise · \(model.selectedLayer?.name ?? "Layer")") {
-            PercentSlider(
-                title: "Luminance",
-                hint: "Grain. Edge-aware, so seams are not the thing being smoothed.",
-                percent: binding(\.noise.luminance),
-                onCommit: { model.commitHistory("Noise reduction on \(model.selectedLayer?.name ?? "layer")") }
-            )
-            PercentSlider(
-                title: "Colour",
-                hint: "Chroma noise, blurred at a quarter of the resolution.",
-                percent: binding(\.noise.chroma)
-            )
-            PercentSlider(
-                title: "Detail",
-                hint: "Higher keeps weave and edges. Lower lets the denoise go further.",
-                percent: binding(\.noise.detail)
-            )
-            Toggle("Limit to mask", isOn: Binding(
-                get: { model.noise.limitToMask },
-                set: {
-                    model.noise.limitToMask = $0
-                    model.schedulePreview()
-                }
-            ))
-            .toggleStyle(.checkbox)
-            .font(.system(size: 12))
-            .foregroundStyle(Theme.secondary)
-            Text("Off until you raise an amount. It runs before de-wrinkle. The preview is downscaled, so judge grain on the export.")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button("Reset noise") { model.resetNoise() }
-                .buttonStyle(.borderless)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.accent)
-                .help("Turn noise reduction off on this layer.")
         }
     }
 
@@ -162,7 +107,7 @@ struct InspectorView: View {
 
     private var maskSection: some View {
         InspectorSection(title: "Mask") {
-            Text("De-wrinkle only touches the mask. Noise is global unless you limit it.")
+            Text("De-wrinkle only touches the mask. The cloth is selected when you open a photo.")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -170,18 +115,12 @@ struct InspectorView: View {
                 Button("De-wrinkle") { model.detectWrinkles() }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.accent)
-                    .help("Find creases on the cloth and smooth them. Embroidery, seams, skin, and hands stay out. (A)")
+                    .help("Select the clothing and smooth it. Skin, hands, and the hijab stay out unless you include the hijab. (A)")
                 Button("Clear") { model.clearMask() }
                     .buttonStyle(.bordered)
                     .help("Clear this layer’s mask so de-wrinkle stops.")
             }
             .controlSize(.small)
-            PercentSlider(
-                title: "Detection sensitivity",
-                hint: "Higher marks fainter creases. Re-runs detection and replaces this layer’s mask.",
-                percent: $model.detectionSensitivity,
-                onCommit: { model.detectWrinkles() }
-            )
             Toggle("Include hijab", isOn: Binding(
                 get: { model.includeHijab },
                 set: {

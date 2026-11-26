@@ -76,38 +76,6 @@ public enum YCbCr {
     }
 }
 
-/// Future Core ML denoiser. Assign `DenoiseSlot.shared.model`.
-/// The model should denoise the whole frame. When "limit to mask" is on, the
-/// pipeline blends the model output back with the original outside the mask,
-/// so the model itself can stay global.
-public protocol MLDenoiseModel: AnyObject {
-    var displayName: String { get }
-    func denoise(_ image: RGBImage, parameters: NoiseReductionParameters) async throws -> RGBImage
-}
-
-public final class DenoiseSlot: @unchecked Sendable {
-    public static let shared = DenoiseSlot()
-    private let lock = NSLock()
-    private var installed: MLDenoiseModel?
-
-    public var model: MLDenoiseModel? {
-        get {
-            lock.lock()
-            defer { lock.unlock() }
-            return installed
-        }
-        set {
-            lock.lock()
-            installed = newValue
-            lock.unlock()
-        }
-    }
-
-    public var usesCoreML: Bool { model != nil }
-
-    private init() {}
-}
-
 public enum NoiseReduction {
     public static func apply(
         _ image: RGBImage,

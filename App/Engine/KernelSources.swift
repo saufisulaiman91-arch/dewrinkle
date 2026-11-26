@@ -6,17 +6,55 @@ import Foundation
 /// produced by the Xcode build script when it is in the app bundle.
 enum KernelSources {
     static let recombine = """
-    kernel vec4 dewrinkleRecombine(__sample image, __sample detail, __sample fine, __sample coarse, __sample mask, float fineKeep, float foldKeep, float strength) {
+    kernel vec4 dewrinkleRecombine(__sample image, __sample detail, __sample fine, __sample deep, __sample base, __sample ridge, __sample mask, float fineAmt, float deepAmt, float structureSoften) {
         vec3 weights = vec3(0.299, 0.587, 0.114);
         float y = dot(image.rgb, weights);
-        float high = y - detail.r;
-        float mid = detail.r - fine.r;
-        float broad = fine.r - coarse.r;
-        float corrected = coarse.r + broad * foldKeep + mid * fineKeep + high;
-        float delta = (corrected - y) * strength;
+        float grain = y - detail.r;
+        float lines = detail.r - fine.r;
+        float folds = fine.r - deep.r;
+        float drape = deep.r - base.r;
+        float lineSpan = max(0.02 - 0.004, 0.0001);
+        float lineT = clamp((ridge.r - 0.004) / lineSpan, 0.0, 1.0);
+        float lineGate = lineT * lineT * (3.0 - 2.0 * lineT);
+        float c0 = abs(grain) * 1.4 + 0.008;
+        float c1 = abs(grain) * 2.6 + 0.028;
+        float cT = clamp((abs(lines) - c0) / max(c1 - c0, 0.0001), 0.0, 1.0);
+        float contrast = cT * cT * (3.0 - 2.0 * cT);
+        float fineGate = lineGate * contrast;
+        float delta = (-(lines * fineGate + grain * fineGate * 0.35) * fineAmt - (folds * 0.9 + drape * structureSoften) * deepAmt) * mask.r;
         vec3 shaded = clamp(image.rgb + vec3(delta), vec3(0.0), vec3(1.0));
-        float amount = clamp(mask.r, 0.0, 1.0);
-        return vec4(mix(image.rgb, shaded, amount), image.a);
+        return vec4(shaded, image.a);
+    }
+    """
+
+    static let ridge = """
+    kernel vec4 ridgeGate(sampler src) {
+        vec2 d = destCoord();
+        float c = sample(src, samplerTransform(src, d)).r;
+        float l = sample(src, samplerTransform(src, d + vec2(-1.0, 0.0))).r;
+        float r = sample(src, samplerTransform(src, d + vec2(1.0, 0.0))).r;
+        float u = sample(src, samplerTransform(src, d + vec2(0.0, 1.0))).r;
+        float dn = sample(src, samplerTransform(src, d + vec2(0.0, -1.0))).r;
+        float tl = sample(src, samplerTransform(src, d + vec2(-1.0, 1.0))).r;
+        float tr = sample(src, samplerTransform(src, d + vec2(1.0, 1.0))).r;
+        float bl = sample(src, samplerTransform(src, d + vec2(-1.0, -1.0))).r;
+        float br = sample(src, samplerTransform(src, d + vec2(1.0, -1.0))).r;
+        float ixx = l - 2.0 * c + r;
+        float iyy = u - 2.0 * c + dn;
+        float ixy = (br - bl - tr + tl) * 0.25;
+        float half = (ixx + iyy) * 0.5;
+        float root = sqrt(max(half * half - (ixx * iyy - ixy * ixy), 0.0));
+        float major = max(abs(half + root), abs(half - root));
+        float minor = min(abs(half + root), abs(half - root));
+        float score = major * major / (major + minor + 0.0001);
+        return vec4(score, score, score, 1.0);
+    }
+    """
+
+    static let subtractLuma = """
+    kernel vec4 subtractLuma(__sample a, __sample b) {
+        float d = a.r - b.r + 0.5;
+        return vec4(d, d, d, 1.0);
     }
     """
 
@@ -75,6 +113,8 @@ final class KernelLibrary {
     let denoiseAssemble: CIColorKernel?
     let blendMask: CIColorKernel?
     let structure: CIKernel?
+    let ridge: CIKernel?
+    let subtract: CIColorKernel?
     let usedMetalLibrary: Bool
 
     private init() {
@@ -84,12 +124,16 @@ final class KernelLibrary {
            let effectMask = try? CIColorKernel(functionName: "effectMask", fromMetalLibraryData: data),
            let denoiseAssemble = try? CIColorKernel(functionName: "denoiseAssemble", fromMetalLibraryData: data),
            let blendMask = try? CIColorKernel(functionName: "blendMask", fromMetalLibraryData: data),
-           let structure = try? CIKernel(functionName: "structureSobel", fromMetalLibraryData: data) {
+           let structure = try? CIKernel(functionName: "structureSobel", fromMetalLibraryData: data),
+           let ridge = try? CIKernel(functionName: "ridgeGate", fromMetalLibraryData: data),
+           let subtract = try? CIColorKernel(functionName: "subtractLuma", fromMetalLibraryData: data) {
             self.recombine = recombine
             self.effectMask = effectMask
             self.denoiseAssemble = denoiseAssemble
             self.blendMask = blendMask
             self.structure = structure
+            self.ridge = ridge
+            self.subtract = subtract
             usedMetalLibrary = true
             return
         }
@@ -99,6 +143,8 @@ final class KernelLibrary {
         denoiseAssemble = CIColorKernel(source: KernelSources.denoiseAssemble)
         blendMask = CIColorKernel(source: KernelSources.blendMask)
         structure = CIKernel(source: KernelSources.structure)
+        ridge = CIKernel(source: KernelSources.ridge)
+        subtract = CIColorKernel(source: KernelSources.subtractLuma)
         usedMetalLibrary = false
     }
 }

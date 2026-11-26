@@ -190,7 +190,10 @@ enum CIGraph {
             return image
         }
         let kernels = KernelLibrary.shared
-        guard let recombine = kernels.recombine, let effect = kernels.effectMask else {
+        guard let recombine = kernels.recombine,
+              let effect = kernels.effectMask,
+              let subtract = kernels.subtract,
+              let ridge = kernels.ridge else {
             throw RenderError.kernel("The de-wrinkle kernel failed to compile.")
         }
         let extent = image.extent
@@ -199,6 +202,7 @@ enum CIGraph {
         let detail = blur(luma, sigma: CGFloat(sigmas.detail), extent: extent)
         let fine = blur(luma, sigma: CGFloat(sigmas.fine), extent: extent)
         let coarse = blur(luma, sigma: CGFloat(sigmas.coarse), extent: extent)
+        let base = blur(luma, sigma: max(CGFloat(sigmas.coarse) * 2.8, CGFloat(sigmas.coarse) + 1), extent: extent)
         let structureParameters = StructureParameters.resolved(fullShortSide: fullShortSide, pixelScale: pixelScale)
         let protect = structure(of: image, parameters: structureParameters, extent: extent)
         let feather = max(1.2, CGFloat(fullShortSide) * CGFloat(pixelScale) * 0.004)
@@ -207,18 +211,27 @@ enum CIGraph {
             softened,
             protect,
             NSNumber(value: 1)
-        ]) else {
+        ]),
+        let lines = subtract.apply(extent: extent, arguments: [detail, fine]),
+        let ridgeMap = ridge.apply(
+            extent: extent,
+            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
+            arguments: [lines]
+        ) else {
             throw RenderError.renderFailed
         }
+        let structureSoften: Float = (1 - parameters.preserveFolds) * 0.55
         guard let output = recombine.apply(extent: extent, arguments: [
             image,
             detail,
             fine,
             coarse,
+            base,
+            ridgeMap,
             effectMask,
-            NSNumber(value: parameters.fineKeep),
-            NSNumber(value: parameters.foldKeep),
-            NSNumber(value: parameters.clampedStrength)
+            NSNumber(value: parameters.fine),
+            NSNumber(value: parameters.coarse),
+            NSNumber(value: structureSoften)
         ]) else {
             throw RenderError.renderFailed
         }
@@ -412,9 +425,6 @@ final class RenderPipeline: @unchecked Sendable {
         )
     }
 
-    /// Classical graph, or `DenoiseSlot`'s Core ML model when one is installed.
-    /// The model runs before de-wrinkle. Do not call this from the main thread when a
-    /// model is installed: the wait below would deadlock if the model needs main.
     private func renderRGBA(
         source: CIImage,
         mask: MaskBuffer,
@@ -425,33 +435,15 @@ final class RenderPipeline: @unchecked Sendable {
         height: Int
     ) throws -> [Float] {
         let maskImage = CIGraph.maskImage(mask)
-        var working = prepared(source, width: width, height: height)
-        if edits.noise.isActive, let model = DenoiseSlot.shared.model {
-            let rgb = try rgbImage(from: working, width: width, height: height)
-            let denoised = try Self.awaitModel(model, image: rgb, parameters: edits.noise)
-            var replaced = CIGraph.scale(ciImage(from: denoised), to: working.extent)
-            if edits.noise.limitToMask, let blend = KernelLibrary.shared.blendMask {
-                replaced = blend.apply(extent: working.extent, arguments: [working, replaced, maskImage])?.cropped(to: working.extent) ?? replaced
-            }
-            var withoutNoise = edits
-            withoutNoise.noise = .off
-            working = try CIGraph.process(
-                image: replaced,
-                mask: maskImage,
-                edits: withoutNoise,
-                fullShortSide: fullShortSide,
-                pixelScale: pixelScale
-            )
-        } else {
-            working = try CIGraph.process(
-                image: working,
-                mask: maskImage,
-                edits: edits,
-                fullShortSide: fullShortSide,
-                pixelScale: pixelScale
-            )
-        }
-        return try bitmap(working, width: width, height: height)
+        let working = prepared(source, width: width, height: height)
+        let processed = try CIGraph.process(
+            image: working,
+            mask: maskImage,
+            edits: edits,
+            fullShortSide: fullShortSide,
+            pixelScale: pixelScale
+        )
+        return try bitmap(processed, width: width, height: height)
     }
 
     /// Layers are applied from the bottom of the stack to the top. Opacity scales the mask,
@@ -519,34 +511,6 @@ final class RenderPipeline: @unchecked Sendable {
         return Self.flipVertically(buffer, width: width, height: height)
     }
 
-    private func rgbImage(from image: CIImage, width: Int, height: Int) throws -> RGBImage {
-        let rgba = try bitmap(image, width: width, height: height)
-        var pixels = [Float](repeating: 0, count: width * height * 3)
-        for index in 0..<(width * height) {
-            pixels[index * 3] = rgba[index * 4]
-            pixels[index * 3 + 1] = rgba[index * 4 + 1]
-            pixels[index * 3 + 2] = rgba[index * 4 + 2]
-        }
-        return RGBImage(width: width, height: height, pixels: pixels)
-    }
-
-    private func ciImage(from image: RGBImage) -> CIImage {
-        var rgba = [Float](repeating: 1, count: image.pixelCount * 4)
-        for index in 0..<image.pixelCount {
-            rgba[index * 4] = image.pixels[index * 3]
-            rgba[index * 4 + 1] = image.pixels[index * 3 + 1]
-            rgba[index * 4 + 2] = image.pixels[index * 3 + 2]
-        }
-        let data = rgba.withUnsafeBytes { Data($0) }
-        return CIImage(
-            bitmapData: data,
-            bytesPerRow: image.width * MemoryLayout<Float>.stride * 4,
-            size: CGSize(width: image.width, height: image.height),
-            format: .RGBAf,
-            colorSpace: nil
-        )
-    }
-
     private static func flipVertically(_ buffer: [Float], width: Int, height: Int) -> [Float] {
         var flipped = buffer
         let row = width * 4
@@ -561,31 +525,4 @@ final class RenderPipeline: @unchecked Sendable {
         }
         return flipped
     }
-
-    /// The model must not require the main thread. Render runs off main, and this waits.
-    private static func awaitModel(
-        _ model: MLDenoiseModel,
-        image: RGBImage,
-        parameters: NoiseReductionParameters
-    ) throws -> RGBImage {
-        let box = ModelResultBox()
-        let semaphore = DispatchSemaphore(value: 0)
-        Task {
-            do {
-                box.result = .success(try await model.denoise(image, parameters: parameters))
-            } catch {
-                box.result = .failure(error)
-            }
-            semaphore.signal()
-        }
-        semaphore.wait()
-        guard let result = box.result else {
-            throw RenderError.renderFailed
-        }
-        return try result.get()
-    }
-}
-
-private final class ModelResultBox: @unchecked Sendable {
-    var result: Result<RGBImage, Error>?
 }

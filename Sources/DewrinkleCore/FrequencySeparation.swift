@@ -84,17 +84,11 @@ public struct DewrinkleParameters: Equatable, Sendable {
         self.preserveFolds = preserveFolds
     }
 
-    /// Natural: ease crease shading, keep satin sheen and the drape.
-    public static let standard = DewrinkleParameters(strength: 0.50, fine: 0.62, coarse: 0.18, preserveFolds: 0.75)
-    public static let strong = DewrinkleParameters(strength: 0.72, fine: 0.85, coarse: 0.48, preserveFolds: 0.15)
-    /// Automatic creases. The mid band is lifted inside the detected mask. Body shading, wider than the coarse radius, stays.
-    public static let detected = DewrinkleParameters(
-        strength: 0.96,
-        fine: 1,
-        coarse: 0.7,
-        scales: FrequencyScales(detailFraction: 0.0014, fineFraction: 0.020, coarseFraction: 0.062),
-        preserveFolds: 0.58
-    )
+    /// Evoto-style default. 50 on clothing, fine lines, and deep folds.
+    public static let standard = DewrinkleParameters(strength: 0.50, fine: 0.50, coarse: 0.50, preserveFolds: 0.75)
+    public static let strong = DewrinkleParameters(strength: 1, fine: 1, coarse: 1, preserveFolds: 0.45)
+    /// Same as the natural default. Opening a photo uses this.
+    public static let detected = DewrinkleParameters(strength: 0.50, fine: 0.50, coarse: 0.50, preserveFolds: 0.75)
 
     public var fineKeep: Float { 1 - clamp01(fine) }
     public var coarseKeep: Float { 1 - clamp01(coarse) }
@@ -178,34 +172,94 @@ public enum FrequencySeparation {
             guide: image.luminancePlane(),
             radius: max(1.25, Float(shortSide) * pixelScale * 0.004)
         )
-        let gray = RGBImage(lumaOf: image)
-        let corrected = recombine(
-            bands(of: gray, sigmas: sigmas),
-            fineKeep: parameters.fineKeep,
-            coarseKeep: parameters.foldKeep
-        )
-        let protection = StructureMask.make(
-            image: image,
-            parameters: structure ?? .resolved(fullShortSide: shortSide, pixelScale: pixelScale)
-        )
+        let luma = image.luminancePlane()
+        let width = image.width
+        let height = image.height
+        let detail = GaussianBlur.plane(luma, width: width, height: height, sigma: sigmas.detail)
+        let fine = GaussianBlur.plane(luma, width: width, height: height, sigma: sigmas.fine)
+        let deep = GaussianBlur.plane(luma, width: width, height: height, sigma: sigmas.coarse)
+        let baseSigma = max(sigmas.coarse * 2.8, sigmas.coarse + 1)
+        let base = GaussianBlur.plane(luma, width: width, height: height, sigma: baseSigma)
+        var lines = [Float](repeating: 0, count: luma.count)
+        var grain = [Float](repeating: 0, count: luma.count)
+        for index in luma.indices {
+            lines[index] = detail[index] - fine[index]
+            grain[index] = luma[index] - detail[index]
+        }
+        let ridge = lineStrength(lines, width: width, height: height)
+        let peak = robustPeak(ridge, mask: feather.values)
+        let grainLevel = GaussianBlur.plane(grain.map { abs($0) }, width: width, height: height, sigma: max(0.8, sigmas.fine * 0.35))
+        let edges = StructureMask.gradientMagnitude(of: image)
+        let fineAmount = clamp01(parameters.fine)
+        let deepAmount = clamp01(parameters.coarse)
+        let structureSoften = (1 - clamp01(parameters.preserveFolds)) * 0.55
+        let protection = structure.map {
+            StructureMask.make(image: image, parameters: $0)
+        }
 
         var output = image
-        let width = image.width
-        for y in 0..<image.height {
+        for y in 0..<height {
             for x in 0..<width {
-                let coverage = feather.values[y * width + x] * (1 - protection.values[y * width + x])
+                let index = y * width + x
+                var coverage = feather.values[index]
+                if let protection {
+                    coverage *= 1 - protection.values[index]
+                }
                 if coverage <= 0 { continue }
-                let index = image.offset(x, y)
-                let originalY = 0.299 * image.pixels[index] + 0.587 * image.pixels[index + 1] + 0.114 * image.pixels[index + 2]
-                let delta = (corrected.pixels[index] - originalY) * strength
+                let lineGate = smoothstep(peak * 0.22, peak * 0.55 + 1e-5, ridge[index])
+                let contrast = smoothstep(grainLevel[index] * 1.4 + 0.008, grainLevel[index] * 2.6 + 0.028, abs(lines[index]))
+                let fineGate = lineGate * contrast
+                let folds = fine[index] - deep[index]
+                let drape = deep[index] - base[index]
+                let edgeWeight = 1 - smoothstep(0.035, 0.12, edges[index])
+                let delta = (
+                    -(lines[index] * fineGate + grain[index] * fineGate * 0.35) * fineAmount
+                    - (folds * 0.9 + drape * structureSoften) * deepAmount
+                ) * edgeWeight
+                let pixel = image.offset(x, y)
                 for channel in 0..<3 {
-                    let shaded = image.pixels[index + channel] + delta
-                    let blended = image.pixels[index + channel] * (1 - coverage) + clamp01(shaded) * coverage
-                    output.pixels[index + channel] = blended
+                    let shaded = image.pixels[pixel + channel] + delta
+                    output.pixels[pixel + channel] = image.pixels[pixel + channel] * (1 - coverage) + clamp01(shaded) * coverage
                 }
             }
         }
         return output
+    }
+
+    /// Line-like curvature. A crease scores high. Grain and a checker do not, because both Hessian eigenvalues are similar.
+    static func lineStrength(_ plane: [Float], width: Int, height: Int) -> [Float] {
+        var output = [Float](repeating: 0, count: plane.count)
+        func at(_ x: Int, _ y: Int) -> Float {
+            plane[min(max(y, 0), height - 1) * width + min(max(x, 0), width - 1)]
+        }
+        for y in 0..<height {
+            for x in 0..<width {
+                let center = at(x, y)
+                let ixx = at(x - 1, y) - 2 * center + at(x + 1, y)
+                let iyy = at(x, y - 1) - 2 * center + at(x, y + 1)
+                let ixy = (at(x + 1, y + 1) - at(x - 1, y + 1) - at(x + 1, y - 1) + at(x - 1, y - 1)) * 0.25
+                let half = (ixx + iyy) * 0.5
+                let root = sqrt(max(0, half * half - (ixx * iyy - ixy * ixy)))
+                let major = max(abs(half + root), abs(half - root))
+                let minor = min(abs(half + root), abs(half - root))
+                output[y * width + x] = major * major / (major + minor + 1e-6)
+            }
+        }
+        return output
+    }
+
+    private static func robustPeak(_ values: [Float], mask: [Float]) -> Float {
+        var samples: [Float] = []
+        samples.reserveCapacity(values.count / 4)
+        for index in values.indices where mask[index] > 0.35 {
+            samples.append(values[index])
+        }
+        if samples.isEmpty {
+            samples = values
+        }
+        samples.sort()
+        let index = min(samples.count - 1, max(0, Int((Float(samples.count - 1) * 0.97).rounded())))
+        return max(samples[index], 1e-4)
     }
 
     static func subtract(_ a: RGBImage, _ b: RGBImage) -> RGBImage {

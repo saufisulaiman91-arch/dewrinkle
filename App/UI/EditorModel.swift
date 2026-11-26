@@ -18,9 +18,6 @@ final class EditorModel: ObservableObject {
     @Published var parameters = DewrinkleParameters.detected {
         didSet { mirrorParameters() }
     }
-    @Published var noise = NoiseReductionParameters.off {
-        didSet { mirrorNoise() }
-    }
     @Published var layers: [EditLayer] = []
     @Published var selectedLayerID: UUID?
     @Published var canvasTool: CanvasTool = .brush
@@ -123,7 +120,6 @@ final class EditorModel: ObservableObject {
             layers = [paint, base]
             selectedLayerID = paint.id
             parameters = paint.dewrinkle
-            noise = paint.noise
             suppressLayerSync = false
             inFlight = nil
             previewAfter = loaded.preview
@@ -233,9 +229,8 @@ final class EditorModel: ObservableObject {
         guard photo != nil else { return }
         guard let targetID = layers.first(where: { !$0.isBackground })?.id ?? selectedLayerID else { return }
         isBusy = true
-        busyLabel = "Finding creases…"
+        busyLabel = "Finding the cloth…"
         let rgb = orientedRGB()
-        let sensitivity = Float(detectionSensitivity / 100)
         let withHijab = includeHijab
         let tolerance = Float(selectTolerance / 100)
         Task {
@@ -253,13 +248,10 @@ final class EditorModel: ObservableObject {
                 }
             } catch {
                 clothing = MaskBuffer(width: rgb.width, height: rgb.height, fill: 1)
-                note = "Person detection missed, so creases were found on the whole frame."
+                note = "Person detection missed, so de-wrinkle covers the whole frame."
             }
-            let settings = WrinkleDetector.Settings(sensitivity: sensitivity)
-            let detected = (try? await Self.offMain {
-                WrinkleDetector.mask(image: rgb, clothing: clothing, settings: settings)
-            }) ?? WrinkleDetector.mask(image: rgb, clothing: clothing, settings: settings)
-            self.finishDetection(detected, on: targetID, note: note)
+            let feathered = GaussianBlur.mask(clothing, sigma: 1.4)
+            self.finishDetection(feathered, on: targetID, note: note)
         }
     }
 
@@ -278,16 +270,16 @@ final class EditorModel: ObservableObject {
         parameters = .detected
         suppressLayerSync = false
         maskOverlayVisible = true
-        maskToast = "Creases"
-        commitHistory("Detect creases")
+        maskToast = "Clothing"
+        commitHistory("Select clothing")
         isBusy = false
         let coverage = Int((mask.mean() * 100).rounded())
         if coverage < 1 {
-            status = "No creases marked. Raise Detection sensitivity, or paint the ones you want."
+            status = "No clothing found. Paint the cloth you want smoothed."
         } else if let note {
             status = note
         } else {
-            status = "Creases cover about \(coverage)% of the preview. Paint to add, Option-drag to leave cloth alone."
+            status = "Clothing covers about \(coverage)% of the preview. Paint to add, Option-drag to erase."
         }
         schedulePreview()
     }
@@ -314,9 +306,17 @@ final class EditorModel: ObservableObject {
         restore(state)
     }
 
+    func setClothingLevel(_ percent: Double) {
+        let value = Float(min(max(percent, 0), 100) / 100)
+        parameters.strength = value
+        parameters.fine = value
+        parameters.coarse = value
+        schedulePreview()
+    }
+
     func usePreset(_ preset: DewrinkleParameters) {
         parameters = preset
-        commitHistory(preset.preserveFolds > 0.5 ? "Natural de-wrinkle" : "Strong de-wrinkle")
+        commitHistory(preset.strength > 0.75 ? "Strong de-wrinkle" : "Natural de-wrinkle")
         schedulePreview()
     }
 
@@ -328,13 +328,6 @@ final class EditorModel: ObservableObject {
             parameters.fineRadiusOverride = overrides.1
             parameters.coarseRadiusOverride = overrides.2
         }
-        schedulePreview()
-    }
-
-    func resetNoise() {
-        let limit = noise.limitToMask
-        noise = .off
-        noise.limitToMask = limit
         schedulePreview()
     }
 
@@ -827,11 +820,9 @@ final class EditorModel: ObservableObject {
             let mask = layer.mask.rasterize(width: width, height: height, extra: extraStroke)
             var dewrinkle = layer.dewrinkle
             if !layer.dewrinkleOn { dewrinkle.strength = 0 }
-            var noise = layer.noise
-            noise.limitToMask = true
             passes.append(RenderPass(
                 mask: mask,
-                edits: EditParameters(dewrinkle: dewrinkle, noise: noise),
+                edits: EditParameters(dewrinkle: dewrinkle, noise: .off),
                 opacity: layer.opacity
             ))
         }
@@ -860,7 +851,6 @@ final class EditorModel: ObservableObject {
         includeHijab = state.includeHijab
         if let layer = selectedLayer {
             parameters = layer.dewrinkle
-            noise = layer.noise
         }
         suppressLayerSync = false
         inFlight = nil
@@ -896,16 +886,10 @@ final class EditorModel: ObservableObject {
         layers[selectedIndex].dewrinkleOn = true
     }
 
-    private func mirrorNoise() {
-        guard !suppressLayerSync, let selectedIndex else { return }
-        layers[selectedIndex].noise = noise
-    }
-
     private func pullSelectedAdjustments() {
         guard let layer = selectedLayer else { return }
         suppressLayerSync = true
         parameters = layer.dewrinkle
-        noise = layer.noise
         suppressLayerSync = false
     }
 

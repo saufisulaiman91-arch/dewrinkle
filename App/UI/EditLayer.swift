@@ -10,7 +10,6 @@ struct EditLayer: Identifiable, Equatable {
     var mask: MaskDocument
     var dewrinkleOn: Bool
     var dewrinkle: DewrinkleParameters
-    var noise: NoiseReductionParameters
 
     static func background() -> EditLayer {
         EditLayer(
@@ -21,8 +20,7 @@ struct EditLayer: Identifiable, Equatable {
             opacity: 1,
             mask: MaskDocument(),
             dewrinkleOn: false,
-            dewrinkle: .standard,
-            noise: .off
+            dewrinkle: .standard
         )
     }
 
@@ -35,8 +33,7 @@ struct EditLayer: Identifiable, Equatable {
             opacity: 1,
             mask: MaskDocument(),
             dewrinkleOn: true,
-            dewrinkle: .detected,
-            noise: .off
+            dewrinkle: .detected
         )
     }
 }

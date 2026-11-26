@@ -10,22 +10,53 @@ using namespace metal;
     sample_t image,
     sample_t detail,
     sample_t fine,
-    sample_t coarse,
+    sample_t deep,
+    sample_t base,
+    sample_t ridge,
     sample_t mask,
-    float fineKeep,
-    float foldKeep,
-    float strength
+    float fineAmt,
+    float deepAmt,
+    float structureSoften
 ) {
     float3 weights = float3(0.299f, 0.587f, 0.114f);
     float y = dot(image.rgb, weights);
-    float high = y - detail.r;
-    float mid = detail.r - fine.r;
-    float broad = fine.r - coarse.r;
-    float corrected = coarse.r + broad * foldKeep + mid * fineKeep + high;
-    float delta = (corrected - y) * strength;
+    float grain = y - detail.r;
+    float lines = detail.r - fine.r;
+    float folds = fine.r - deep.r;
+    float drape = deep.r - base.r;
+    float lineGate = smoothstep(0.004f, 0.02f, ridge.r);
+    float contrast = smoothstep(abs(grain) * 1.4f + 0.008f, abs(grain) * 2.6f + 0.028f, abs(lines));
+    float fineGate = lineGate * contrast;
+    float delta = (-(lines * fineGate + grain * fineGate * 0.35f) * fineAmt - (folds * 0.9f + drape * structureSoften) * deepAmt) * mask.r;
     float3 shaded = clamp(image.rgb + float3(delta), float3(0.0f), float3(1.0f));
-    float amount = clamp(mask.r, 0.0f, 1.0f);
-    return float4(mix(image.rgb, shaded, amount), image.a);
+    return float4(shaded, image.a);
+}
+
+[[ stitchable ]] float4 subtractLuma(sample_t a, sample_t b) {
+    float d = a.r - b.r + 0.5f;
+    return float4(d, d, d, 1.0f);
+}
+
+[[ stitchable ]] float4 ridgeGate(sampler src) {
+    float2 p = src.coord();
+    float c = src.sample(src.transform(p)).r;
+    float l = src.sample(src.transform(p + float2(-1.0f, 0.0f))).r;
+    float r = src.sample(src.transform(p + float2(1.0f, 0.0f))).r;
+    float u = src.sample(src.transform(p + float2(0.0f, 1.0f))).r;
+    float dn = src.sample(src.transform(p + float2(0.0f, -1.0f))).r;
+    float tl = src.sample(src.transform(p + float2(-1.0f, 1.0f))).r;
+    float tr = src.sample(src.transform(p + float2(1.0f, 1.0f))).r;
+    float bl = src.sample(src.transform(p + float2(-1.0f, -1.0f))).r;
+    float br = src.sample(src.transform(p + float2(1.0f, -1.0f))).r;
+    float ixx = l - 2.0f * c + r;
+    float iyy = u - 2.0f * c + dn;
+    float ixy = (br - bl - tr + tl) * 0.25f;
+    float half = (ixx + iyy) * 0.5f;
+    float root = sqrt(max(half * half - (ixx * iyy - ixy * ixy), 0.0f));
+    float major = max(abs(half + root), abs(half - root));
+    float minor = min(abs(half + root), abs(half - root));
+    float score = major * major / (major + minor + 0.0001f);
+    return float4(score, score, score, 1.0f);
 }
 
 [[ stitchable ]] float4 effectMask(sample_t garment, sample_t protect, float strength) {

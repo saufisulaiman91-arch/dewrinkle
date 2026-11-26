@@ -42,7 +42,7 @@ struct SidebarView: View {
             Spacer()
             Button { model.addLayer() } label: { Image(systemName: "plus") }
                 .buttonStyle(.borderless)
-                .help("Add a layer with its own mask, de-wrinkle, and noise.")
+                .help("Add a layer with its own mask and de-wrinkle.")
                 .disabled(model.photo == nil)
             Button { model.deleteSelectedLayer() } label: { Image(systemName: "minus") }
                 .buttonStyle(.borderless)
