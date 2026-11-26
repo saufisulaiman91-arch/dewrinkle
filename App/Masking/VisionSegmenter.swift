@@ -20,13 +20,13 @@ final class VisionForegroundSegmenter: ForegroundSegmenting {
         }.value
     }
 
-    static func faces(in image: CGImage) throws -> [NormalizedRect] {
+    static func faces(in image: CGImage) throws -> [DewrinkleCore.NormalizedRect] {
         let request = VNDetectFaceRectanglesRequest()
         let handler = VNImageRequestHandler(cgImage: image, options: [:])
         try handler.perform([request])
         return (request.results ?? []).map { face in
             let box = face.boundingBox
-            return NormalizedRect(
+            return DewrinkleCore.NormalizedRect(
                 x: Float(box.origin.x),
                 y: Float(1 - box.origin.y - box.height),
                 width: Float(box.width),

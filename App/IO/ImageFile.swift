@@ -210,7 +210,6 @@ enum ImageFile {
             kCGImagePropertyExifAuxDictionary,
             kCGImagePropertyIPTCDictionary,
             kCGImagePropertyGPSDictionary,
-            kCGImagePropertyIPTCDigest,
             kCGImagePropertyMakerAppleDictionary
         ]
         for key in passthrough {

@@ -169,8 +169,8 @@ final class EditorModel: ObservableObject {
         renderTask = Task { [pipeline] in
             try? await Task.sleep(nanoseconds: 28_000_000)
             guard !Task.isCancelled else { return }
-            let rendered: CGImage? = await Self.offMain {
-                try? pipeline.renderPreview(
+            let rendered: CGImage? = try? await Self.offMain {
+                try pipeline.renderPreview(
                     source: source,
                     mask: mask,
                     edits: edits,
