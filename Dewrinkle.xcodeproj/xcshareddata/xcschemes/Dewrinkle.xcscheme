@@ -29,7 +29,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D0979E03DAE6CBA26C12845A"
-               BuildableName = "DewrinkleCore.framework"
+               BuildableName = "libDewrinkleCore.a"
                BlueprintName = "DewrinkleCore"
                ReferencedContainer = "container:Dewrinkle.xcodeproj">
             </BuildableReference>

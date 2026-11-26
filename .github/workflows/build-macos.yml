@@ -56,25 +56,82 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             PROVISIONING_PROFILE_SPECIFIER="" \
             build
 
-      - name: Zip Dewrinkle.app with ditto
+      - name: Re-sign, verify, and launch
         run: |
           set -euo pipefail
           APP="DerivedData/Build/Products/Release/Dewrinkle.app"
+          BIN="${APP}/Contents/MacOS/Dewrinkle"
           test -d "${APP}"
-          codesign --verify --verbose=2 "${APP}"
-          codesign -dv --verbose=4 "${APP}"
-          lipo -info "${APP}/Contents/MacOS/Dewrinkle"
+          test -x "${BIN}"
           if [[ -d "${APP}/Contents/Frameworks/DewrinkleCore.framework" ]]; then
-            codesign --verify --verbose=2 "${APP}/Contents/Frameworks/DewrinkleCore.framework"
+            echo "DewrinkleCore.framework is still embedded; the core must be linked statically."
+            exit 1
           fi
+          if otool -L "${BIN}" | grep -q DewrinkleCore; then
+            echo "The app still links DewrinkleCore as a dynamic library:"
+            otool -L "${BIN}"
+            exit 1
+          fi
+          # One ad-hoc signature for the whole bundle. Hardened runtime stays on.
+          codesign --force --deep --sign - --options runtime \
+            --entitlements App/Dewrinkle.entitlements \
+            "${APP}"
+          codesign --verify --deep --strict --verbose=2 "${APP}"
+          codesign -dv --verbose=4 "${APP}" 2>&1 | tee /tmp/dewrinkle-codesign.txt
+          if grep -E 'TeamIdentifier=.+' /tmp/dewrinkle-codesign.txt | grep -v 'TeamIdentifier=not set' >/dev/null; then
+            echo "The app has a Team ID. Ad-hoc builds must have none."
+            exit 1
+          fi
+          if [[ -d "${APP}/Contents/Frameworks" ]]; then
+            find "${APP}/Contents/Frameworks" -name '*.framework' -o -name '*.dylib' | while read -r nested; do
+              echo "Checking nested code: ${nested}"
+              codesign -dv --verbose=4 "${nested}" 2>&1 | tee /tmp/dewrinkle-nested.txt
+              codesign --verify --strict --verbose=2 "${nested}"
+            done
+          fi
+          lipo -info "${BIN}"
+          export BIN
+          python3 - "$BIN" << 'PY'
+          import subprocess
+          import sys
+
+          binary = sys.argv[1]
+          proc = subprocess.Popen(
+              [binary],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+          )
+          try:
+              output, _ = proc.communicate(timeout=8)
+              timed_out = False
+              code = proc.returncode
+          except subprocess.TimeoutExpired:
+              proc.kill()
+              output, _ = proc.communicate()
+              timed_out = True
+              code = None
+          text = (output or b"").decode("utf-8", "replace")
+          sys.stdout.write(text)
+          markers = (
+              "Library not loaded",
+              "different Team IDs",
+              "not valid for use in process",
+              "code signature invalid",
+          )
+          if any(marker in text for marker in markers):
+              print("Launch died with a dyld or code-signature error.", file=sys.stderr)
+              sys.exit(1)
+          if timed_out:
+              print("Dewrinkle stayed running for 8 seconds.")
+              sys.exit(0)
+          print(f"Dewrinkle exited {code} without a dyld error.")
+          PY
           mkdir -p dist
           ditto -c -k --keepParent "${APP}" dist/Dewrinkle-macOS.zip
           unzip -l dist/Dewrinkle-macOS.zip

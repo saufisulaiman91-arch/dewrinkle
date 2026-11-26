@@ -79,13 +79,13 @@ The project is also described by `project.yml`. If you change the file list and 
 xcodegen generate
 ```
 
-`Scripts/generate_xcodeproj.py` rewrites the checked-in project if you would rather not install XcodeGen. The app links a `DewrinkleCore` framework built from `Sources/DewrinkleCore`. The same sources are a Swift package, so the core can be tested without Xcode:
+`Scripts/generate_xcodeproj.py` rewrites the checked-in project if you would rather not install XcodeGen. The app statically links `DewrinkleCore` from `Sources/DewrinkleCore`, so the finished app is one signed executable. The same sources are a Swift package, so the core can be tested without Xcode:
 
 ```bash
 swift test
 ```
 
-On a Mac, Product → Test runs `DewrinkleCoreTests` against that framework.
+On a Mac, Product → Test runs `DewrinkleCoreTests` against that static library.
 
 A build-phase script, `Scripts/compile-kernel.sh`, compiles `App/Shaders/Dewrinkle.metal` into a Core Image metallib with `metal -fcikernel`. If that step does not run, the app compiles the matching kernel source in `KernelSources.swift` at launch. Keep those two in sync. The high-frequency term (`image - detail`) is added back unchanged in both.
 

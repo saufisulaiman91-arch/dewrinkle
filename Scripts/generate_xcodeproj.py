@@ -200,7 +200,7 @@ def write_project() -> None:
     core_product = uid("product:core")
     test_product = uid("product:test")
     add(app_product, "PBXFileReference", '\t\t\texplicitFileType = wrapper.application;\n\t\t\tincludeInIndex = 0;\n\t\t\tpath = Dewrinkle.app;\n\t\t\tsourceTree = BUILT_PRODUCTS_DIR;\n')
-    add(core_product, "PBXFileReference", '\t\t\texplicitFileType = wrapper.framework;\n\t\t\tincludeInIndex = 0;\n\t\t\tpath = DewrinkleCore.framework;\n\t\t\tsourceTree = BUILT_PRODUCTS_DIR;\n')
+    add(core_product, "PBXFileReference", '\t\t\texplicitFileType = archive.ar;\n\t\t\tincludeInIndex = 0;\n\t\t\tpath = libDewrinkleCore.a;\n\t\t\tsourceTree = BUILT_PRODUCTS_DIR;\n')
     add(test_product, "PBXFileReference", '\t\t\texplicitFileType = wrapper.cfbundle;\n\t\t\tincludeInIndex = 0;\n\t\t\tpath = DewrinkleCoreTests.xctest;\n\t\t\tsourceTree = BUILT_PRODUCTS_DIR;\n')
 
     def build_file(path: str, extra: str = "") -> str:
@@ -220,9 +220,7 @@ def write_project() -> None:
         return object_id
 
     app_link = product_build("app-link-core", core_product)
-    app_embed = product_build("app-embed-core", core_product, "{ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy); }")
     test_link = product_build("test-link-core", core_product)
-    test_embed = product_build("test-embed-core", core_product, "{ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy); }")
     asset_build = build_file("App/Assets.xcassets")
 
     def phase(kind: str, key: str, files: list, extra: str = "") -> str:
@@ -240,11 +238,8 @@ def write_project() -> None:
     app_sources_phase = phase("PBXSourcesBuildPhase", "app-sources", app_build)
     app_frameworks_phase = phase("PBXFrameworksBuildPhase", "app-frameworks", [app_link])
     app_resources_phase = phase("PBXResourcesBuildPhase", "app-resources", [asset_build])
-    embed_extra = '\t\t\tdstPath = "";\n\t\t\tdstSubfolderSpec = 10;\n\t\t\tname = "Embed Frameworks";\n'
-    app_embed_phase = phase("PBXCopyFilesBuildPhase", "app-embed", [app_embed], embed_extra)
     test_sources_phase = phase("PBXSourcesBuildPhase", "test-sources", test_build)
     test_frameworks_phase = phase("PBXFrameworksBuildPhase", "test-frameworks", [test_link])
-    test_embed_phase = phase("PBXCopyFilesBuildPhase", "test-embed", [test_embed], embed_extra)
 
     script_phase = uid("phase:kernel")
     # Trailing \n is part of the OpenStep string. Xcode's parser expects it.
@@ -396,18 +391,16 @@ def write_project() -> None:
         "DEVELOPMENT_TEAM": "",
         "PROVISIONING_PROFILE_SPECIFIER": "",
     }
+    # Static library: the core is linked into Dewrinkle.app, so dyld never
+    # loads a second Mach-O with its own code signature.
     core_common = {
-        **sign_local,
+        "CODE_SIGNING_ALLOWED": "NO",
+        "CODE_SIGNING_REQUIRED": "NO",
         "CURRENT_PROJECT_VERSION": "1",
         "DEFINES_MODULE": "YES",
-        "DYLIB_COMPATIBILITY_VERSION": "1",
-        "DYLIB_CURRENT_VERSION": "1",
-        "DYLIB_INSTALL_NAME_BASE": "@rpath",
-        "GENERATE_INFOPLIST_FILE": "YES",
-        "INSTALL_PATH": "$(LOCAL_LIBRARY_DIR)/Frameworks",
-        "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks",
+        "GENERATE_INFOPLIST_FILE": "NO",
+        "MACH_O_TYPE": "staticlib",
         "MARKETING_VERSION": "1.0",
-        "PRODUCT_BUNDLE_IDENTIFIER": "studio.dewinkle.DewrinkleCore",
         "PRODUCT_NAME": "DewrinkleCore",
         "SKIP_INSTALL": "YES",
         "SWIFT_EMIT_LOC_STRINGS": "YES",
@@ -428,6 +421,8 @@ def write_project() -> None:
         "GENERATE_INFOPLIST_FILE": "NO",
         "INFOPLIST_FILE": "App/Info.plist",
         "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks",
+        "LIBRARY_SEARCH_PATHS": "$(inherited) $(BUILT_PRODUCTS_DIR)",
+        "SWIFT_INCLUDE_PATHS": "$(inherited) $(BUILT_PRODUCTS_DIR)",
         "MARKETING_VERSION": "1.0",
         "PRODUCT_BUNDLE_IDENTIFIER": "studio.dewinkle.Dewrinkle",
         "PRODUCT_NAME": "Dewrinkle",
@@ -471,7 +466,7 @@ def write_project() -> None:
         core_target,
         "DewrinkleCore",
         "DewrinkleCore",
-        "com.apple.product-type.framework",
+        "com.apple.product-type.library.static",
         core_product,
         [core_sources_phase, core_frameworks_phase],
         [],
@@ -483,7 +478,7 @@ def write_project() -> None:
         "Dewrinkle",
         "com.apple.product-type.application",
         app_product,
-        [app_sources_phase, app_frameworks_phase, app_resources_phase, app_embed_phase, script_phase],
+        [app_sources_phase, app_frameworks_phase, app_resources_phase, script_phase],
         [app_dep],
         app_list,
     )
@@ -493,7 +488,7 @@ def write_project() -> None:
         "DewrinkleCoreTests",
         "com.apple.product-type.bundle.unit-test",
         test_product,
-        [test_sources_phase, test_frameworks_phase, test_embed_phase],
+        [test_sources_phase, test_frameworks_phase],
         [test_dep],
         test_list,
     )
@@ -564,7 +559,7 @@ def write_project() -> None:
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "{core_target}"
-               BuildableName = "DewrinkleCore.framework"
+               BuildableName = "libDewrinkleCore.a"
                BlueprintName = "DewrinkleCore"
                ReferencedContainer = "container:Dewrinkle.xcodeproj">
             </BuildableReference>

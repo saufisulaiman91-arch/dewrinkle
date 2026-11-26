@@ -12,26 +12,20 @@ settings:
   SDKROOT: macosx
 targets:
   DewrinkleCore:
-    type: framework
+    type: library.static
     platform: macOS
     sources:
       - Sources/DewrinkleCore
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: studio.dewinkle.DewrinkleCore
-      GENERATE_INFOPLIST_FILE: YES
+      GENERATE_INFOPLIST_FILE: NO
       DEFINES_MODULE: YES
+      MACH_O_TYPE: staticlib
       SKIP_INSTALL: YES
       MARKETING_VERSION: "1.0"
       CURRENT_PROJECT_VERSION: "1"
       ENABLE_TESTABILITY: YES
-      CODE_SIGN_STYLE: Manual
-      CODE_SIGN_IDENTITY: "-"
-      CODE_SIGNING_REQUIRED: YES
-      CODE_SIGNING_ALLOWED: YES
-      AD_HOC_CODE_SIGNING_ALLOWED: YES
-      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
-      DEVELOPMENT_TEAM: ""
-      PROVISIONING_PROFILE_SPECIFIER: ""
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
   Dewrinkle:
     type: application
     platform: macOS
@@ -43,7 +37,7 @@ targets:
         buildPhase: none
     dependencies:
       - target: DewrinkleCore
-        embed: true
+        embed: false
     postBuildScripts:
       - name: Compile Core Image kernel
         script: |
