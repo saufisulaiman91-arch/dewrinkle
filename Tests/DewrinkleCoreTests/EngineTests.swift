@@ -717,8 +717,8 @@ final class EngineTests: XCTestCase {
             .appendingPathComponent("Fixtures")
         let beforeURL = fixtures.appendingPathComponent("baju-kurung-before.png")
         let afterURL = fixtures.appendingPathComponent("baju-kurung-after.png")
-        let before = try loadRGB(beforeURL)
-        let target = try loadRGB(afterURL)
+        let before = scaled(try loadRGB(beforeURL), maxSide: 900)
+        let target = scaled(try loadRGB(afterURL), maxSide: 900)
         let clothing = satinCloth(before)
         var settings = DewrinkleParameters.standard
         settings.strength = 0.55
@@ -1050,6 +1050,26 @@ private func regionChroma(_ image: RGBImage, y: Range<Double>, x: Range<Double>)
         }
     }
     return sum / max(count, 1)
+}
+
+private func scaled(_ image: RGBImage, maxSide: Int) -> RGBImage {
+    let longSide = max(image.width, image.height)
+    if longSide <= maxSide { return image }
+    let scale = Float(maxSide) / Float(longSide)
+    let width = max(1, Int((Float(image.width) * scale).rounded()))
+    let height = max(1, Int((Float(image.height) * scale).rounded()))
+    var output = RGBImage(width: width, height: height, fill: 0)
+    for y in 0..<height {
+        let v = (Float(y) + 0.5) / Float(height)
+        for x in 0..<width {
+            let u = (Float(x) + 0.5) / Float(width)
+            let sx = min(max(Int(u * Float(image.width)), 0), image.width - 1)
+            let sy = min(max(Int(v * Float(image.height)), 0), image.height - 1)
+            let source = image.offset(sx, sy)
+            output.setPixel(x, y, r: image.pixels[source], g: image.pixels[source + 1], b: image.pixels[source + 2])
+        }
+    }
+    return output
 }
 
 private func fitted(_ image: RGBImage, width: Int, height: Int) -> RGBImage {
