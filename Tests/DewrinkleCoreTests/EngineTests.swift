@@ -1,3 +1,6 @@
+import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 @testable import DewrinkleCore
 
@@ -673,6 +676,73 @@ final class EngineTests: XCTestCase {
         XCTAssertLessThan(mask.values[mask.index(0, 0)], 0.05)
         XCTAssertLessThan(mask.values[mask.index(10, 6)], 0.05)
     }
+
+    func testDetectedCreasesSmoothTheSkirtAndLeaveEmbroidery() throws {
+        let image = bajuScene()
+        let clothing = MaskBuffer(width: image.width, height: image.height, fill: 1)
+        let mask = WrinkleDetector.mask(
+            image: image,
+            clothing: clothing,
+            settings: WrinkleDetector.Settings(sensitivity: 0.58)
+        )
+        let gentle = WrinkleDetector.mask(
+            image: image,
+            clothing: clothing,
+            settings: WrinkleDetector.Settings(sensitivity: 0.2)
+        )
+        XCTAssertLessThan(gentle.mean(), mask.mean())
+
+        XCTAssertLessThan(mean(mask, y: 14..<62, x: 30..<(image.width - 30)), 0.12, "embroidery stays out of the mask")
+        XCTAssertLessThan(meanColumn(mask, x: 14, y: 150..<(image.height - 28)), 0.28, "the side seam stays out")
+        XCTAssertLessThan(meanRow(mask, y: image.height - 16, x: 40..<(image.width - 20)), 0.28, "the hem stays out")
+        XCTAssertGreaterThan(maximum(mask, y: 140..<(image.height - 40), x: 48..<(image.width - 24)), 0.4, "skirt creases are marked")
+
+        let smoothed = FrequencySeparation.apply(
+            image,
+            mask: mask,
+            parameters: .detected,
+            structure: noProtection
+        )
+        let skirt = skirtRegion(image)
+        let beforeEnergy = WrinkleDetector.creaseEnergy(of: image, region: skirt)
+        let afterEnergy = WrinkleDetector.creaseEnergy(of: smoothed, region: skirt)
+        XCTAssertGreaterThan(beforeEnergy, 0.01)
+        XCTAssertLessThan(afterEnergy, beforeEnergy * 0.62, "diagonal crease energy should drop")
+        XCTAssertGreaterThan(shadeSplit(smoothed), shadeSplit(image) * 0.68, "broad body shading stays")
+        XCTAssertLessThan(meanAbsDelta(image, smoothed, y: 16..<58, x: 32..<(image.width - 32)), 0.04, "embroidery stays crisp")
+        XCTAssertLessThan(
+            meanAbsDelta(image, smoothed, y: (image.height - 16)..<(image.height - 15), x: 40..<(image.width - 20)),
+            0.05,
+            "the hem line stays"
+        )
+        writeRegression(before: image, mask: mask, after: smoothed, name: "satin-skirt")
+    }
+
+    func testBajuKurungReferenceMatchesTheAfterCreaseEnergy() throws {
+        let fixtures = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures")
+        let beforeURL = fixtures.appendingPathComponent("baju-kurung-before.png")
+        let afterURL = fixtures.appendingPathComponent("baju-kurung-after.png")
+        guard FileManager.default.fileExists(atPath: beforeURL.path),
+              FileManager.default.fileExists(atPath: afterURL.path) else {
+            throw XCTSkip("Place the photographer’s before/after PNGs in Tests/Fixtures to run this comparison.")
+        }
+        let before = try loadRGB(beforeURL)
+        let after = try loadRGB(afterURL)
+        XCTAssertEqual(before.width, after.width)
+        XCTAssertEqual(before.height, after.height)
+        let clothing = satinCloth(before)
+        let mask = WrinkleDetector.mask(image: before, clothing: clothing)
+        let output = FrequencySeparation.apply(before, mask: mask, parameters: .detected, structure: noProtection)
+        let beforeEnergy = WrinkleDetector.creaseEnergy(of: before, region: clothing)
+        let outputEnergy = WrinkleDetector.creaseEnergy(of: output, region: clothing)
+        let targetEnergy = WrinkleDetector.creaseEnergy(of: after, region: clothing)
+        XCTAssertLessThan(outputEnergy, beforeEnergy * 0.8)
+        XCTAssertLessThan(abs(outputEnergy - targetEnergy), max(0.012, targetEnergy * 0.5))
+        writeRegression(before: before, mask: mask, after: output, name: "baju-kurung")
+    }
 }
 
 private let noProtection = StructureParameters(edgeLow: 10, edgeHigh: 11, dilatePixels: 0, featherPixels: 0)
@@ -751,6 +821,231 @@ private func lumaDrift(_ a: RGBImage, _ b: RGBImage) -> Float {
         }
     }
     return sum / Float(a.pixelCount)
+}
+
+private func bajuScene() -> RGBImage {
+    let width = 280
+    let height = 360
+    var image = RGBImage(width: width, height: height, fill: 0)
+    for y in 0..<height {
+        for x in 0..<width {
+            var luma = 0.40 + 0.10 * Float(x) / Float(width)
+            if y >= 110 && x >= 36 {
+                luma += 0.11 * sin(2 * Float.pi * (0.55 * Float(x) + 0.84 * Float(y)) / 16)
+            }
+            if y < 78 {
+                luma += ((x / 2) + (y / 2)) % 2 == 0 ? 0.16 : -0.16
+            }
+            if x == 14 && y > 100 { luma -= 0.42 }
+            if y == height - 16 { luma -= 0.42 }
+            luma = min(max(luma, 0.02), 0.92)
+            var red = luma + 0.05
+            var green = luma * 0.62
+            var blue = luma * 0.38
+            if y < 78 && (x + y) % 6 == 0 {
+                red += 0.18
+                green += 0.1
+                blue += 0.14
+            }
+            image.setPixel(x, y, r: min(red, 1), g: min(green, 1), b: min(blue, 1))
+        }
+    }
+    return image
+}
+
+private func skirtRegion(_ image: RGBImage) -> MaskBuffer {
+    var mask = MaskBuffer(width: image.width, height: image.height, fill: 0)
+    for y in 140..<(image.height - 40) {
+        for x in 48..<(image.width - 24) {
+            mask.values[mask.index(x, y)] = 1
+        }
+    }
+    return mask
+}
+
+private func mean(_ mask: MaskBuffer, y: Range<Int>, x: Range<Int>) -> Float {
+    var sum: Float = 0
+    var count: Float = 0
+    for yy in y {
+        for xx in x {
+            sum += mask.values[mask.index(xx, yy)]
+            count += 1
+        }
+    }
+    return sum / max(count, 1)
+}
+
+private func meanColumn(_ mask: MaskBuffer, x: Int, y: Range<Int>) -> Float {
+    var sum: Float = 0
+    var count: Float = 0
+    for yy in y {
+        sum += mask.values[mask.index(x, yy)]
+        count += 1
+    }
+    return sum / max(count, 1)
+}
+
+private func meanRow(_ mask: MaskBuffer, y: Int, x: Range<Int>) -> Float {
+    var sum: Float = 0
+    var count: Float = 0
+    for xx in x {
+        sum += mask.values[mask.index(xx, y)]
+        count += 1
+    }
+    return sum / max(count, 1)
+}
+
+private func maximum(_ mask: MaskBuffer, y: Range<Int>, x: Range<Int>) -> Float {
+    var peak: Float = 0
+    for yy in y {
+        for xx in x {
+            peak = max(peak, mask.values[mask.index(xx, yy)])
+        }
+    }
+    return peak
+}
+
+private func meanAbsDelta(_ a: RGBImage, _ b: RGBImage, y: Range<Int>, x: Range<Int>) -> Float {
+    var sum: Float = 0
+    var count: Float = 0
+    for yy in y {
+        for xx in x {
+            let ia = a.offset(xx, yy)
+            let ib = b.offset(xx, yy)
+            sum += abs(a.pixels[ia] - b.pixels[ib])
+            sum += abs(a.pixels[ia + 1] - b.pixels[ib + 1])
+            sum += abs(a.pixels[ia + 2] - b.pixels[ib + 2])
+            count += 3
+        }
+    }
+    return sum / max(count, 1)
+}
+
+private func shadeSplit(_ image: RGBImage) -> Float {
+    func average(_ xs: Range<Int>) -> Float {
+        var sum: Float = 0
+        var count: Float = 0
+        for y in 160..<(image.height - 40) {
+            for x in xs {
+                let index = image.offset(x, y)
+                sum += 0.299 * image.pixels[index] + 0.587 * image.pixels[index + 1] + 0.114 * image.pixels[index + 2]
+                count += 1
+            }
+        }
+        return sum / max(count, 1)
+    }
+    return abs(average(40..<90) - average((image.width - 90)..<(image.width - 20)))
+}
+
+private func satinCloth(_ image: RGBImage) -> MaskBuffer {
+    var mask = MaskBuffer(width: image.width, height: image.height, fill: 0)
+    for y in 0..<image.height {
+        for x in 0..<image.width {
+            let index = image.offset(x, y)
+            let red = image.pixels[index]
+            let green = image.pixels[index + 1]
+            let blue = image.pixels[index + 2]
+            let luma = 0.299 * red + 0.587 * green + 0.114 * blue
+            let grass = green > red * 1.05 && green > 0.18
+            let wall = luma > 0.75 && abs(red - green) < 0.08 && abs(red - blue) < 0.1
+            if !grass && !wall && luma > 0.08 {
+                mask.values[mask.index(x, y)] = 1
+            }
+        }
+    }
+    return mask
+}
+
+private func loadRGB(_ url: URL) throws -> RGBImage {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+          let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        throw NSError(domain: "DewrinkleTests", code: 1)
+    }
+    let width = cgImage.width
+    let height = cgImage.height
+    var bytes = [UInt8](repeating: 0, count: width * height * 4)
+    let drew = bytes.withUnsafeMutableBytes { raw -> Bool in
+        guard let context = CGContext(
+            data: raw.baseAddress,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else { return false }
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return true
+    }
+    if !drew { throw NSError(domain: "DewrinkleTests", code: 2) }
+    var pixels = [Float](repeating: 0, count: width * height * 3)
+    for index in 0..<(width * height) {
+        pixels[index * 3] = Float(bytes[index * 4]) / 255
+        pixels[index * 3 + 1] = Float(bytes[index * 4 + 1]) / 255
+        pixels[index * 3 + 2] = Float(bytes[index * 4 + 2]) / 255
+    }
+    return RGBImage(width: width, height: height, pixels: pixels)
+}
+
+private func writeRegression(before: RGBImage, mask: MaskBuffer, after: RGBImage, name: String) {
+    guard let directory = ProcessInfo.processInfo.environment["DEWRINKLE_REGRESSION_DIR"], !directory.isEmpty else { return }
+    let folder = URL(fileURLWithPath: directory, isDirectory: true)
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let aligned = mask.resized(toWidth: before.width, height: before.height)
+    let width = before.width * 3
+    let height = before.height
+    var bytes = [UInt8](repeating: 255, count: width * height * 4)
+    for y in 0..<height {
+        for x in 0..<before.width {
+            let source = before.offset(x, y)
+            let edited = after.offset(x, y)
+            let coverage = aligned.values[y * before.width + x]
+            for panel in 0..<3 {
+                let origin = panel * before.width
+                let pixel = (panel == 2) ? edited : source
+                let destination = (y * width + origin + x) * 4
+                var red = before.pixels[pixel]
+                var green = before.pixels[pixel + 1]
+                var blue = before.pixels[pixel + 2]
+                if panel == 2 {
+                    red = after.pixels[pixel]
+                    green = after.pixels[pixel + 1]
+                    blue = after.pixels[pixel + 2]
+                }
+                if panel == 1 {
+                    red = red * (1 - coverage) + coverage
+                    green *= 1 - coverage * 0.85
+                    blue *= 1 - coverage * 0.85
+                }
+                bytes[destination] = UInt8((min(max(red, 0), 1) * 255).rounded())
+                bytes[destination + 1] = UInt8((min(max(green, 0), 1) * 255).rounded())
+                bytes[destination + 2] = UInt8((min(max(blue, 0), 1) * 255).rounded())
+            }
+        }
+    }
+    let data = Data(bytes) as CFData
+    guard let provider = CGDataProvider(data: data),
+          let image = CGImage(
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: false,
+            intent: .defaultIntent
+          ),
+          let destination = CGImageDestinationCreateWithURL(
+            folder.appendingPathComponent("\(name).png") as CFURL,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+          ) else { return }
+    CGImageDestinationAddImage(destination, image, nil)
+    CGImageDestinationFinalize(destination)
 }
 
 private final class CountingDenoiser: MLDenoiseModel {

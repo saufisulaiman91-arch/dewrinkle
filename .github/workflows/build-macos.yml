@@ -43,6 +43,16 @@ jobs:
 
       - name: Swift package tests
         run: swift test
+        env:
+          DEWRINKLE_REGRESSION_DIR: ${{ github.workspace }}/regression
+
+      - name: Upload crease regression
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrinkle-regression
+          path: regression
+          if-no-files-found: ignore
 
       - name: Build Release app
         run: |

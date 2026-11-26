@@ -111,6 +111,13 @@
 			sourceTree = "<group>";
 		};
 
+		0445047A356452B8BCE15E17 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "WrinkleDetector.swift";
+			sourceTree = "<group>";
+		};
+
 		D9C97E505B7AB7C1D8E9FE07 /* PBXFileReference */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
@@ -336,6 +343,11 @@
 			fileRef = B829FED33E8DC1CA2B0007C7;
 		};
 
+		030C5D4EE98B068D7AD72050 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 0445047A356452B8BCE15E17;
+		};
+
 		CEF284C274E356542F1F09A9 /* PBXBuildFile */ = {
 			isa = PBXBuildFile;
 			fileRef = D9C97E505B7AB7C1D8E9FE07;
@@ -440,6 +452,7 @@
 				9FEAAAE6598A8095535637EF,
 				0F36F5A2F4BE1FB10EB9878E,
 				ED9A476BF5CE4228AE0616A7,
+				030C5D4EE98B068D7AD72050,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -546,6 +559,7 @@
 				F18AEA624505CAF8503F5526,
 				B1CF2BA702836B4643739E49,
 				B829FED33E8DC1CA2B0007C7,
+				0445047A356452B8BCE15E17,
 			);
 			path = "DewrinkleCore";
 			sourceTree = "<group>";

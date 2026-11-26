@@ -173,8 +173,8 @@ struct ContentView: View {
                 model.canvasTool = .clickSelect
             }
             .disabled(model.photo == nil)
-            tool("Fill the mask with the garment so you can refine it. (A)", systemImage: "person.crop.rectangle", title: "Auto") {
-                model.detectGarment()
+            tool("Find creases on the cloth and smooth them. Paint to add, Option-drag to erase. (A)", systemImage: "person.crop.rectangle", title: "Creases") {
+                model.detectWrinkles()
             }
             .disabled(model.photo == nil)
             tool("Fit the photo in the window. (⌘0)", systemImage: "arrow.up.left.and.arrow.down.right", title: "Fit") { model.fit() }

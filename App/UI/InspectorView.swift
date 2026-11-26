@@ -167,15 +167,32 @@ struct InspectorView: View {
                 .foregroundStyle(Theme.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
-                Button("Auto suggest") { model.detectGarment() }
+                Button("De-wrinkle") { model.detectWrinkles() }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.accent)
-                    .help("Fill this layer with the garment, including the hijab and not the face. (A)")
+                    .help("Find creases on the cloth and smooth them. Embroidery, seams, skin, and hands stay out. (A)")
                 Button("Clear") { model.clearMask() }
                     .buttonStyle(.bordered)
                     .help("Clear this layer’s mask so de-wrinkle stops.")
             }
             .controlSize(.small)
+            PercentSlider(
+                title: "Detection sensitivity",
+                hint: "Higher marks fainter creases. Re-runs detection and replaces this layer’s mask.",
+                percent: $model.detectionSensitivity,
+                onCommit: { model.detectWrinkles() }
+            )
+            Toggle("Include hijab", isOn: Binding(
+                get: { model.includeHijab },
+                set: {
+                    model.includeHijab = $0
+                    model.detectWrinkles()
+                }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.secondary)
+            .help("Off leaves the hijab out of the crease mask. On searches the hijab for creases too.")
             HStack(spacing: 8) {
                 Button("Subject") { model.applyQuickMask("Select subject") }
                     .help("Select the person. Face and hands stay in this mask.")
@@ -226,7 +243,7 @@ struct InspectorView: View {
             .toggleStyle(.checkbox)
             .font(.system(size: 12))
             .foregroundStyle(Theme.secondary)
-            Text("Paint creases with the brush. Auto suggest and the select buttons fill this layer’s mask. Click select uses the person, clothing, skin, or background under the cursor. Shift-click adds, Option-click subtracts.")
+            Text("Opening a photo finds creases on the cloth and shows them in red. Paint to add, Option-drag to erase. Embroidery, beading, seams, hems, skin, and hands stay out. The hijab stays out unless Include hijab is on.")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

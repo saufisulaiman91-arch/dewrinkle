@@ -35,7 +35,7 @@ struct EditLayer: Identifiable, Equatable {
             opacity: 1,
             mask: MaskDocument(),
             dewrinkleOn: true,
-            dewrinkle: .standard,
+            dewrinkle: .detected,
             noise: .off
         )
     }
@@ -46,6 +46,8 @@ struct EditSnapshot: Equatable {
     var layers: [EditLayer]
     var selectedLayerID: UUID
     var brush: BrushSettings
+    var detectionSensitivity: Float
+    var includeHijab: Bool
 }
 
 enum CanvasTool: String, Equatable {

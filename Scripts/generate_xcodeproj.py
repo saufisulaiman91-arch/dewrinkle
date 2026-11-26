@@ -164,6 +164,7 @@ def write_project() -> None:
         "RegionGrow.swift",
         "StructureMask.swift",
         "SubjectMasking.swift",
+        "WrinkleDetector.swift",
     ]
     app_sources = [
         ("App/DewrinkleApp.swift", "DewrinkleApp.swift"),

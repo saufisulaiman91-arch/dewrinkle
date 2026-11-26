@@ -15,7 +15,7 @@ final class EditorModel: ObservableObject {
     static let shared = EditorModel()
 
     @Published var photo: LoadedPhoto?
-    @Published var parameters = DewrinkleParameters.standard {
+    @Published var parameters = DewrinkleParameters.detected {
         didSet { mirrorParameters() }
     }
     @Published var noise = NoiseReductionParameters.off {
@@ -25,6 +25,8 @@ final class EditorModel: ObservableObject {
     @Published var selectedLayerID: UUID?
     @Published var canvasTool: CanvasTool = .brush
     @Published var selectTolerance: Double = 12
+    @Published var detectionSensitivity: Double = 58
+    @Published var includeHijab = false
     @Published var maskToast: String?
     @Published var historyRows: [HistoryRow] = []
     @Published var brush = BrushSettings.standard
@@ -132,10 +134,11 @@ final class EditorModel: ObservableObject {
             publishHistory()
             refreshDisplaySize()
             syncRadiusFields()
-            status = loaded.statusLine + "  ·  paint the creases you want smoothed"
+            status = loaded.statusLine + "  ·  finding creases"
             isBusy = false
             fit()
             schedulePreview()
+            detectWrinkles()
         } catch {
             isBusy = false
             errorMessage = error.localizedDescription
@@ -226,34 +229,67 @@ final class EditorModel: ObservableObject {
         }
     }
 
-    func detectGarment() {
-        guard let photo else { return }
+    func detectWrinkles() {
+        guard photo != nil else { return }
+        guard let targetID = layers.first(where: { !$0.isBackground })?.id ?? selectedLayerID else { return }
         isBusy = true
-        busyLabel = "Finding the garment…"
-        let rgb = photo.previewRGB
+        busyLabel = "Finding creases…"
+        let rgb = orientedRGB()
+        let sensitivity = Float(detectionSensitivity / 100)
+        let withHijab = includeHijab
+        let tolerance = Float(selectTolerance / 100)
         Task {
+            let clothing: MaskBuffer
+            var note: String?
             do {
-                let segmenter = VisionForegroundSegmenter()
-                let built = try await segmenter.regions(for: rgb, tolerance: Float(self.selectTolerance / 100))
-                let outfit = Self.unionMasks(built.clothing, built.hijab)
-                let suggestion = outfit.mean() > 0.01 ? outfit : built.subject
-                if suggestion.mean() < 0.004 {
-                    self.status = "No subject found. Paint the creases, or click the cloth."
+                let built = try await VisionForegroundSegmenter().regions(for: rgb, tolerance: tolerance)
+                if withHijab {
+                    clothing = Self.unionMasks(built.clothing, built.hijab)
+                } else if built.clothing.mean() > 0.01 {
+                    clothing = built.clothing
                 } else {
-                    self.replaceSelectedMask(suggestion)
-                    self.maskOverlayVisible = true
-                    self.maskToast = "Auto suggest"
-                    self.commitHistory("Auto suggest")
-                    let coverage = Int((suggestion.mean() * 100).rounded())
-                    self.status = "Suggested mask covers about \(coverage)% of the preview. Paint to refine it."
+                    let person = Self.subtractMask(built.skin, from: built.subject)
+                    clothing = person.mean() > 0.01 ? person : MaskBuffer(width: rgb.width, height: rgb.height, fill: 1)
                 }
-                self.isBusy = false
-                self.schedulePreview()
             } catch {
-                self.isBusy = false
-                self.errorMessage = error.localizedDescription
+                clothing = MaskBuffer(width: rgb.width, height: rgb.height, fill: 1)
+                note = "Person detection missed, so creases were found on the whole frame."
             }
+            let settings = WrinkleDetector.Settings(sensitivity: sensitivity)
+            let detected = (try? await Self.offMain {
+                WrinkleDetector.mask(image: rgb, clothing: clothing, settings: settings)
+            }) ?? WrinkleDetector.mask(image: rgb, clothing: clothing, settings: settings)
+            self.finishDetection(detected, on: targetID, note: note)
         }
+    }
+
+    private func finishDetection(_ mask: MaskBuffer, on id: UUID, note: String?) {
+        guard let index = layers.firstIndex(where: { $0.id == id }) else {
+            isBusy = false
+            return
+        }
+        var document = MaskDocument()
+        document.setBase(mask)
+        layers[index].mask = document
+        layers[index].dewrinkle = .detected
+        layers[index].dewrinkleOn = true
+        selectedLayerID = id
+        suppressLayerSync = true
+        parameters = .detected
+        suppressLayerSync = false
+        maskOverlayVisible = true
+        maskToast = "Creases"
+        commitHistory("Detect creases")
+        isBusy = false
+        let coverage = Int((mask.mean() * 100).rounded())
+        if coverage < 1 {
+            status = "No creases marked. Raise Detection sensitivity, or paint the ones you want."
+        } else if let note {
+            status = note
+        } else {
+            status = "Creases cover about \(coverage)% of the preview. Paint to add, Option-drag to leave cloth alone."
+        }
+        schedulePreview()
     }
 
     func clearMask() {
@@ -462,7 +498,7 @@ final class EditorModel: ObservableObject {
             brush.radius = min(4000, brush.radius * 1.12)
             return nil
         case "a":
-            detectGarment()
+            detectWrinkles()
             return nil
         case "m":
             toggleMaskOverlay()
@@ -760,6 +796,15 @@ final class EditorModel: ObservableObject {
         return Self.passes(from: layers, width: size.width, height: size.height, extra: extra, selectedID: selectedLayerID)
     }
 
+    private static func subtractMask(_ cut: MaskBuffer, from mask: MaskBuffer) -> MaskBuffer {
+        let other = cut.resized(toWidth: mask.width, height: mask.height)
+        var output = mask
+        for index in output.values.indices {
+            output.values[index] *= 1 - other.values[index]
+        }
+        return output
+    }
+
     private static func unionMasks(_ first: MaskBuffer, _ second: MaskBuffer) -> MaskBuffer {
         let other = second.resized(toWidth: first.width, height: first.height)
         var output = first
@@ -798,7 +843,9 @@ final class EditorModel: ObservableObject {
             turns: turns,
             layers: layers,
             selectedLayerID: selectedLayerID ?? layers.first?.id ?? UUID(),
-            brush: brush
+            brush: brush,
+            detectionSensitivity: Float(detectionSensitivity / 100),
+            includeHijab: includeHijab
         )
     }
 
@@ -809,6 +856,8 @@ final class EditorModel: ObservableObject {
         layers = state.layers
         selectedLayerID = state.selectedLayerID
         brush = state.brush
+        detectionSensitivity = Double(state.detectionSensitivity * 100)
+        includeHijab = state.includeHijab
         if let layer = selectedLayer {
             parameters = layer.dewrinkle
             noise = layer.noise

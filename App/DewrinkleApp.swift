@@ -79,7 +79,7 @@ struct DewrinkleCommands: Commands {
             .keyboardShortcut("e")
             Button("Click to Select") { EditorModel.shared.canvasTool = .clickSelect }
             Divider()
-            Button("Auto Suggest") { EditorModel.shared.detectGarment() }
+            Button("Detect Creases") { EditorModel.shared.detectWrinkles() }
                 .keyboardShortcut("a")
             Button("Select Subject") { EditorModel.shared.applyQuickMask("Select subject") }
             Button("Select Background") { EditorModel.shared.applyQuickMask("Select background") }
