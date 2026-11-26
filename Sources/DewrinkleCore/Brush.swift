@@ -40,6 +40,13 @@ public struct BrushStroke: Equatable, Sendable {
         self.opacity = clamp01(settings.opacity)
         self.points = points
     }
+
+    func applying(_ turn: PictureTurn, referenceWidth: Int) -> BrushStroke {
+        var turned = self
+        turned.points = points.map { turn.map($0) }
+        turned.referenceWidth = referenceWidth
+        return turned
+    }
 }
 
 public struct MaskDocument: Equatable, Sendable {
@@ -80,6 +87,16 @@ public struct MaskDocument: Equatable, Sendable {
         base = nil
         strokes.removeAll()
         undone.removeAll()
+    }
+
+    /// `referenceWidth` / `referenceHeight` are the oriented full-image size before `turn`.
+    public func applying(_ turn: PictureTurn, referenceWidth: Int, referenceHeight: Int) -> MaskDocument {
+        var copy = self
+        copy.base = base?.applying(turn)
+        let newWidth = turn.swapsAxes ? max(referenceHeight, 1) : max(referenceWidth, 1)
+        copy.strokes = strokes.map { $0.applying(turn, referenceWidth: newWidth) }
+        copy.undone = undone.map { $0.applying(turn, referenceWidth: newWidth) }
+        return copy
     }
 
     public func rasterize(width: Int, height: Int, extra: BrushStroke? = nil) -> MaskBuffer {

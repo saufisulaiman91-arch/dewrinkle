@@ -7,9 +7,9 @@ struct InspectorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                brushSection
                 effectSection
                 noiseSection
-                brushSection
                 maskSection
                 outputSection
             }
@@ -24,17 +24,20 @@ struct InspectorView: View {
             PercentSlider(
                 title: "Strength",
                 hint: "How much of the smoothed cloth replaces the original. 70 is the working default.",
-                percent: binding(\.parameters.strength)
+                percent: binding(\.parameters.strength),
+                onCommit: { model.commitHistory("De-wrinkle strength") }
             )
             PercentSlider(
                 title: "Fine wrinkles",
                 hint: "Small creases and crumpling. Weave stays in the high layer and is not blurred.",
-                percent: binding(\.parameters.fine)
+                percent: binding(\.parameters.fine),
+                onCommit: { model.commitHistory("Fine wrinkles") }
             )
             PercentSlider(
                 title: "Coarse wrinkles",
                 hint: "Broader folds. The radius stops short of a hijab or abaya’s drape.",
-                percent: binding(\.parameters.coarse)
+                percent: binding(\.parameters.coarse),
+                onCommit: { model.commitHistory("Coarse wrinkles") }
             )
             Text(model.radiusCaption())
                 .font(.system(size: 11, design: .monospaced))
@@ -60,11 +63,12 @@ struct InspectorView: View {
     }
 
     private var noiseSection: some View {
-        InspectorSection(title: "Noise reduction") {
+        InspectorSection(title: "Noise · \(model.selectedLayer?.name ?? "Layer")") {
             PercentSlider(
                 title: "Luminance",
                 hint: "Grain. Edge-aware, so seams are not the thing being smoothed.",
-                percent: binding(\.noise.luminance)
+                percent: binding(\.noise.luminance),
+                onCommit: { model.commitHistory("Noise reduction on \(model.selectedLayer?.name ?? "layer")") }
             )
             PercentSlider(
                 title: "Colour",
@@ -143,13 +147,44 @@ struct InspectorView: View {
                 .foregroundStyle(Theme.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
-                Button("Detect garment") { model.detectGarment() }
+                Button("Auto suggest") { model.detectGarment() }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.accent)
                 Button("Clear") { model.clearMask() }
                     .buttonStyle(.bordered)
             }
             .controlSize(.small)
+            HStack(spacing: 8) {
+                Button("Subject") { model.applyQuickMask("Select subject") }
+                Button("Clothes") { model.applyQuickMask("Select clothing") }
+            }
+            .controlSize(.small)
+            .buttonStyle(.bordered)
+            HStack(spacing: 8) {
+                Button("Skin") { model.applyQuickMask("Select skin") }
+                Button("Ground") { model.applyQuickMask("Select background") }
+            }
+            .controlSize(.small)
+            .buttonStyle(.bordered)
+            Button(model.canvasTool == .clickSelect ? "Click select is on" : "Click to select") {
+                model.canvasTool = .clickSelect
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.accent)
+            PercentSlider(
+                title: "Select tolerance",
+                hint: "Used when a click misses the person, cloth, skin, and background masks.",
+                percent: $model.selectTolerance,
+                range: 2...40
+            )
+            HStack {
+                Button("Invert mask") { model.invertSelectedMask() }
+                Button("Feather") { model.featherSelectedMask() }
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.accent)
             Toggle("Show mask", isOn: Binding(
                 get: { model.maskOverlayVisible },
                 set: {
@@ -160,7 +195,7 @@ struct InspectorView: View {
             .toggleStyle(.checkbox)
             .font(.system(size: 12))
             .foregroundStyle(Theme.secondary)
-            Text("Auto uses Vision’s person mask, or the foreground if nobody is in frame, then takes out the face and smooth skin. A SAM 2 click model can plug in later.")
+            Text("Paint creases with the brush. Auto suggest and the select buttons fill this layer’s mask. Click select uses the person, clothing, skin, or background under the cursor. Shift-click adds, Option-click subtracts.")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

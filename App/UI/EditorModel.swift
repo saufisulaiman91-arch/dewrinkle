@@ -15,8 +15,18 @@ final class EditorModel: ObservableObject {
     static let shared = EditorModel()
 
     @Published var photo: LoadedPhoto?
-    @Published var parameters = DewrinkleParameters.standard
-    @Published var noise = NoiseReductionParameters.off
+    @Published var parameters = DewrinkleParameters.standard {
+        didSet { mirrorParameters() }
+    }
+    @Published var noise = NoiseReductionParameters.off {
+        didSet { mirrorNoise() }
+    }
+    @Published var layers: [EditLayer] = []
+    @Published var selectedLayerID: UUID?
+    @Published var canvasTool: CanvasTool = .brush
+    @Published var selectTolerance: Double = 12
+    @Published var maskToast: String?
+    @Published var historyRows: [HistoryRow] = []
     @Published var brush = BrushSettings.standard
     @Published var exportSettings = ExportSettings(container: .tiff16)
     @Published var useCustomRadii = false
@@ -42,8 +52,19 @@ final class EditorModel: ObservableObject {
     @Published var coarseRadius: Double = 165
 
     var showingOriginal: Bool { showBeforeLocked || beforeHeld }
+    var selectedLayerIsBackground: Bool { selectedLayer?.isBackground == true }
 
-    private var maskDocument = MaskDocument()
+    struct HistoryRow: Identifiable, Equatable {
+        let id: UUID
+        let index: Int
+        let name: String
+        let isCurrent: Bool
+        let isFuture: Bool
+    }
+
+    private var turns: [PictureTurn] = []
+    private var history = HistoryStack<EditSnapshot>()
+    private var suppressLayerSync = false
     private var inFlight: BrushStroke?
     private var renderTask: Task<Void, Never>?
     private var renderGeneration = 0
@@ -87,19 +108,27 @@ final class EditorModel: ObservableObject {
         do {
             let loaded = try ImageFile.load(url: url)
             photo = loaded
-            parameters = .standard
-            noise = .off
             useCustomRadii = false
             exportSettings = .matching(source: loaded.source)
-            maskDocument = MaskDocument()
+            turns = []
+            canvasTool = .brush
+            let paint = EditLayer.dewrinkle(index: 1)
+            let base = EditLayer.background()
+            suppressLayerSync = true
+            layers = [paint, base]
+            selectedLayerID = paint.id
+            parameters = paint.dewrinkle
+            noise = paint.noise
+            suppressLayerSync = false
             inFlight = nil
             previewAfter = loaded.preview
             maskOverlay = nil
             showBeforeLocked = false
             splitEnabled = false
-            syncHistory()
+            history.reset(name: "Original", state: snapshot())
+            publishHistory()
             syncRadiusFields()
-            status = loaded.statusLine + "  ·  preview \(loaded.preview.width) px"
+            status = loaded.statusLine + "  ·  paint the creases you want smoothed"
             isBusy = false
             fit()
             schedulePreview()
@@ -155,30 +184,26 @@ final class EditorModel: ObservableObject {
         guard let photo else { return }
         renderGeneration += 1
         let generation = renderGeneration
-        let mask = maskDocument.rasterize(
-            width: photo.preview.width,
-            height: photo.preview.height,
-            extra: inFlight
-        )
-        let edits = EditParameters(dewrinkle: parameters, noise: noise)
-        let source = photo.previewCI
-        let fullShort = photo.fullShortSide
-        let pixelScale = photo.previewPixelScale
+        let source = ImageGeometry.apply(turns, to: photo.previewCI)
+        let fullShort = min(displayWidth, displayHeight)
+        let previewSize = orientedPreviewSize(photo)
+        let pixelScale = Float(min(previewSize.width, previewSize.height)) / Float(max(fullShort, 1))
+        let passes = renderPasses(extra: inFlight)
+        let overlayMask = selectedMask(extra: inFlight)
         let showOverlay = maskOverlayVisible
         renderTask?.cancel()
         renderTask = Task { [pipeline] in
             try? await Task.sleep(nanoseconds: 28_000_000)
             guard !Task.isCancelled else { return }
             let rendered: CGImage? = try? await Self.offMain {
-                try pipeline.renderPreview(
+                try pipeline.renderStackedPreview(
                     source: source,
-                    mask: mask,
-                    edits: edits,
+                    passes: passes,
                     fullShortSide: fullShort,
                     pixelScale: pixelScale
                 )
             }
-            let overlay = showOverlay ? CGBridge.overlayImage(mask) : nil
+            let overlay = showOverlay ? overlayMask.flatMap { CGBridge.overlayImage($0) } : nil
             guard generation == self.renderGeneration else { return }
             if let rendered {
                 self.previewAfter = rendered
@@ -195,16 +220,18 @@ final class EditorModel: ObservableObject {
         Task {
             do {
                 let segmenter = VisionForegroundSegmenter()
-                let refined = try await segmenter.maskedGarment(for: rgb)
-                if refined.mean() < 0.004 {
-                    self.status = "No subject found. Paint the cloth, or try a shot where the garment is the foreground."
+                let built = try await segmenter.regions(for: rgb)
+                let suggestion = built.clothing.mean() > 0.01 ? built.clothing : built.subject
+                if suggestion.mean() < 0.004 {
+                    self.status = "No subject found. Paint the creases, or click the cloth."
                 } else {
-                    self.maskDocument.setBase(refined)
+                    self.replaceSelectedMask(suggestion)
                     self.maskOverlayVisible = true
-                    let coverage = Int((refined.mean() * 100).rounded())
-                    self.status = "Garment mask covers about \(coverage)% of the preview. Paint to add, option-drag to restore."
+                    self.maskToast = "Auto suggest"
+                    self.commitHistory("Auto suggest")
+                    let coverage = Int((suggestion.mean() * 100).rounded())
+                    self.status = "Suggested mask covers about \(coverage)% of the preview. Paint to refine it."
                 }
-                self.syncHistory()
                 self.isBusy = false
                 self.schedulePreview()
             } catch {
@@ -215,24 +242,25 @@ final class EditorModel: ObservableObject {
     }
 
     func clearMask() {
-        maskDocument.clear()
-        syncHistory()
+        storeSelectedMask(MaskDocument())
+        commitHistory("Clear mask")
         schedulePreview()
         status = "Mask cleared."
     }
 
     func undo() {
-        guard maskDocument.canUndo else { return }
-        maskDocument.undo()
-        syncHistory()
-        schedulePreview()
+        guard let state = history.undo() else { return }
+        restore(state)
     }
 
     func redo() {
-        guard maskDocument.canRedo else { return }
-        maskDocument.redo()
-        syncHistory()
-        schedulePreview()
+        guard let state = history.redo() else { return }
+        restore(state)
+    }
+
+    func jumpHistory(to index: Int) {
+        guard let state = history.jump(to: index) else { return }
+        restore(state)
     }
 
     func resetEffect() {
@@ -279,18 +307,22 @@ final class EditorModel: ObservableObject {
 
     func previewStroke(points: [SIMD2<Float>], temporaryRestore: Bool) {
         guard let photo, !points.isEmpty else { return }
-        inFlight = makeStroke(points: points, temporaryRestore: temporaryRestore, referenceWidth: photo.orientedWidth)
+        inFlight = makeStroke(points: points, temporaryRestore: temporaryRestore, referenceWidth: displayWidth)
         schedulePreview()
     }
 
     func commitStroke(points: [SIMD2<Float>], temporaryRestore: Bool) {
-        guard let photo, !points.isEmpty else {
+        guard photo != nil, !points.isEmpty else {
             inFlight = nil
             return
         }
-        maskDocument.add(makeStroke(points: points, temporaryRestore: temporaryRestore, referenceWidth: photo.orientedWidth))
+        let stroke = makeStroke(points: points, temporaryRestore: temporaryRestore, referenceWidth: displayWidth)
+        var mask = selectedMaskDocument()
+        mask.add(stroke)
+        storeSelectedMask(mask)
         inFlight = nil
-        syncHistory()
+        let name = stroke.mode == .restore ? "Erase mask" : "De-wrinkle brush"
+        commitHistory(name)
         schedulePreview()
     }
 
@@ -303,29 +335,30 @@ final class EditorModel: ObservableObject {
     private func write(to url: URL) {
         guard let photo else { return }
         isBusy = true
-        busyLabel = "Rendering \(photo.orientedWidth) × \(photo.orientedHeight)…"
+        let size = orientedSize(width: photo.orientedWidth, height: photo.orientedHeight)
+        busyLabel = "Rendering \(size.width) × \(size.height)…"
         let settings = exportSettings
-        let edits = EditParameters(dewrinkle: parameters, noise: noise)
-        let document = maskDocument
         let sourceURL = photo.url
-        let fullShort = photo.fullShortSide
         let colorSpace = photo.colorSpace
         let properties = photo.properties
         let pipeline = pipeline
+        let turns = turns
+        let layerSnapshot = layers
+        let fullShort = min(size.width, size.height)
         Task {
             do {
                 let rendered: (pixels: [Float], width: Int, height: Int) = try await Self.offMain {
                     guard let full = CIImage(contentsOf: sourceURL, options: [.applyOrientationProperty: true]) else {
                         throw ImageFileError.unreadable
                     }
-                    let extent = full.extent.integral
+                    let oriented = ImageGeometry.apply(turns, to: full)
+                    let extent = oriented.extent.integral
                     let width = max(Int(extent.width), 1)
                     let height = max(Int(extent.height), 1)
-                    let mask = document.rasterize(width: width, height: height)
-                    let pixels = try pipeline.renderExport(
-                        source: full,
-                        mask: mask,
-                        edits: edits,
+                    let passes = Self.passes(from: layerSnapshot, width: width, height: height, extra: nil, selectedID: nil)
+                    let pixels = try pipeline.renderStackedExport(
+                        source: oriented,
+                        passes: passes,
                         fullShortSide: fullShort,
                         width: width,
                         height: height
@@ -357,8 +390,7 @@ final class EditorModel: ObservableObject {
     }
 
     private func syncHistory() {
-        canUndo = maskDocument.canUndo
-        canRedo = maskDocument.canRedo
+        publishHistory()
     }
 
     private func syncRadiusFields() {
@@ -390,11 +422,16 @@ final class EditorModel: ObservableObject {
             return nil
         }
         guard isDown, !event.isARepeat else { return event }
+        if event.modifierFlags.contains(.command), characters == "[" || characters == "]" {
+            return event
+        }
         switch characters.lowercased() {
         case "b":
+            canvasTool = .brush
             brush.mode = .paint
             return nil
         case "e":
+            canvasTool = .brush
             brush.mode = .restore
             return nil
         case "[":
@@ -407,8 +444,7 @@ final class EditorModel: ObservableObject {
             detectGarment()
             return nil
         case "m":
-            maskOverlayVisible.toggle()
-            schedulePreview()
+            toggleMaskOverlay()
             return nil
         case "y":
             splitEnabled.toggle()
@@ -420,6 +456,337 @@ final class EditorModel: ObservableObject {
 
     private var textIsEditing: Bool {
         NSApp.keyWindow?.firstResponder is NSTextView
+    }
+
+    func rotate(clockwise: Bool) {
+        let turn: PictureTurn = clockwise ? .clockwise : .counterClockwise
+        apply(turn)
+        commitHistory(clockwise ? "Rotate right" : "Rotate left")
+        fit()
+    }
+
+    func flip(horizontal: Bool) {
+        apply(horizontal ? .flipHorizontal : .flipVertical)
+        commitHistory(horizontal ? "Flip horizontal" : "Flip vertical")
+    }
+
+    func addLayer() {
+        let index = layers.filter { !$0.isBackground }.count + 1
+        let layer = EditLayer.dewrinkle(index: index)
+        layers.insert(layer, at: 0)
+        selectLayer(layer.id)
+        commitHistory("Add layer")
+        schedulePreview()
+    }
+
+    func deleteSelectedLayer() {
+        guard let layer = selectedLayer, !layer.isBackground, let index = selectedIndex else { return }
+        let name = layer.name
+        layers.remove(at: index)
+        selectedLayerID = layers.first?.id
+        pullSelectedAdjustments()
+        commitHistory("Delete \(name)")
+        schedulePreview()
+    }
+
+    func selectLayer(_ id: UUID) {
+        selectedLayerID = id
+        pullSelectedAdjustments()
+        schedulePreview()
+    }
+
+    func setLayerName(_ id: UUID, to name: String) {
+        guard let index = layers.firstIndex(where: { $0.id == id }) else { return }
+        layers[index].name = name
+    }
+
+    func setLayerVisible(_ id: UUID, _ visible: Bool) {
+        guard let index = layers.firstIndex(where: { $0.id == id }) else { return }
+        layers[index].visible = visible
+        commitHistory(visible ? "Show \(layers[index].name)" : "Hide \(layers[index].name)")
+        schedulePreview()
+    }
+
+    func setLayerOpacity(_ id: UUID, _ opacity: Float) {
+        guard let index = layers.firstIndex(where: { $0.id == id }) else { return }
+        layers[index].opacity = min(max(opacity, 0), 1)
+        schedulePreview()
+    }
+
+    func moveSelectedLayer(up: Bool) {
+        guard let index = selectedIndex else { return }
+        let destination = up ? index - 1 : index + 1
+        guard layers.indices.contains(destination) else { return }
+        if layers[index].isBackground || layers[destination].isBackground { return }
+        layers.swapAt(index, destination)
+        commitHistory("Reorder layers")
+        schedulePreview()
+    }
+
+    func commitHistory(_ name: String) {
+        history.commit(name: name, state: snapshot())
+        publishHistory()
+    }
+
+    func clickSelect(at point: SIMD2<Float>, adding: Bool, subtracting: Bool) {
+        guard let photo else { return }
+        let rgb = orientedRGB()
+        let tolerance = Float(selectTolerance / 100)
+        isBusy = true
+        busyLabel = "Selecting…"
+        Task {
+            do {
+                let segmenter = VisionForegroundSegmenter()
+                let (region, name) = try await segmenter.region(for: rgb, at: point, tolerance: tolerance)
+                self.combineSelectedMask(region, adding: adding, subtracting: subtracting)
+                self.maskOverlayVisible = true
+                self.maskToast = subtracting ? "Subtract \(name)" : name
+                self.commitHistory(subtracting ? "Mask subtract" : (adding ? "Mask add" : name))
+                self.status = name
+                self.isBusy = false
+                self.schedulePreview()
+            } catch {
+                self.isBusy = false
+                self.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func applyQuickMask(_ kind: String) {
+        guard let photo else { return }
+        let rgb = orientedRGB()
+        isBusy = true
+        busyLabel = kind
+        Task {
+            do {
+                let built = try await VisionForegroundSegmenter().regions(for: rgb)
+                let mask: MaskBuffer
+                switch kind {
+                case "Select background": mask = built.background
+                case "Select skin": mask = built.skin
+                case "Select clothing": mask = built.clothing
+                default: mask = built.subject
+                }
+                self.replaceSelectedMask(mask)
+                self.maskOverlayVisible = true
+                self.maskToast = kind
+                self.commitHistory(kind)
+                self.isBusy = false
+                self.schedulePreview()
+            } catch {
+                self.isBusy = false
+                self.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func invertSelectedMask() {
+        guard let current = selectedMask(extra: nil) else { return }
+        var inverted = current
+        for index in inverted.values.indices {
+            inverted.values[index] = 1 - inverted.values[index]
+        }
+        replaceSelectedMask(inverted)
+        commitHistory("Invert mask")
+        schedulePreview()
+    }
+
+    func featherSelectedMask() {
+        guard var current = selectedMask(extra: nil) else { return }
+        let sigma = Float(max(selectTolerance, 1)) * 0.15
+        current = GaussianBlur.mask(current, sigma: sigma)
+        replaceSelectedMask(current)
+        commitHistory("Feather mask")
+        schedulePreview()
+    }
+
+    func toggleMaskOverlay() {
+        maskOverlayVisible.toggle()
+        maskToast = maskOverlayVisible ? "Always Display Mask" : "Never Display Mask"
+        schedulePreview()
+    }
+
+    private func apply(_ turn: PictureTurn) {
+        guard let photo else { return }
+        let size = orientedSize(width: photo.orientedWidth, height: photo.orientedHeight)
+        for index in layers.indices {
+            layers[index].mask = layers[index].mask.applying(turn, referenceWidth: size.width, referenceHeight: size.height)
+        }
+        turns.append(turn)
+    }
+
+    private func orientedSize(width: Int, height: Int) -> (width: Int, height: Int) {
+        var w = width
+        var h = height
+        for turn in turns where turn.swapsAxes {
+            swap(&w, &h)
+        }
+        return (w, h)
+    }
+
+    var displayReferenceWidth: Int {
+        max(displayWidth, 1)
+    }
+
+    private var displayWidth: Int {
+        guard let photo else { return 1 }
+        return orientedSize(width: photo.orientedWidth, height: photo.orientedHeight).width
+    }
+
+    private var displayHeight: Int {
+        guard let photo else { return 1 }
+        return orientedSize(width: photo.orientedWidth, height: photo.orientedHeight).height
+    }
+
+    private func orientedRGB() -> RGBImage {
+        guard let photo else { return RGBImage(width: 1, height: 1, fill: 0) }
+        var image = photo.previewRGB
+        for turn in turns {
+            image = image.applying(turn)
+        }
+        return image
+    }
+
+    private var selectedIndex: Int? {
+        guard let selectedLayerID else { return layers.indices.first }
+        return layers.firstIndex { $0.id == selectedLayerID }
+    }
+
+    var selectedLayer: EditLayer? {
+        guard let selectedIndex else { return nil }
+        return layers[selectedIndex]
+    }
+
+    private func selectedMaskDocument() -> MaskDocument {
+        selectedLayer?.mask ?? MaskDocument()
+    }
+
+    private func storeSelectedMask(_ mask: MaskDocument) {
+        guard let selectedIndex else { return }
+        layers[selectedIndex].mask = mask
+        if layers[selectedIndex].isBackground == false {
+            layers[selectedIndex].dewrinkleOn = true
+        }
+    }
+
+    private func replaceSelectedMask(_ mask: MaskBuffer) {
+        var document = MaskDocument()
+        document.setBase(mask)
+        storeSelectedMask(document)
+    }
+
+    private func combineSelectedMask(_ mask: MaskBuffer, adding: Bool, subtracting: Bool) {
+        let current = selectedMask(extra: nil) ?? MaskBuffer(width: mask.width, height: mask.height, fill: 0)
+        let aligned = mask.resized(toWidth: current.width, height: current.height)
+        var combined = current
+        for index in combined.values.indices {
+            if subtracting {
+                combined.values[index] *= 1 - aligned.values[index]
+            } else if adding {
+                combined.values[index] = max(combined.values[index], aligned.values[index])
+            } else {
+                combined.values[index] = aligned.values[index]
+            }
+        }
+        replaceSelectedMask(combined)
+    }
+
+    private func selectedMask(extra: BrushStroke?) -> MaskBuffer? {
+        guard let photo else { return nil }
+        let size = orientedPreviewSize(photo)
+        return selectedMaskDocument().rasterize(width: size.width, height: size.height, extra: extra)
+    }
+
+    private func orientedPreviewSize(_ photo: LoadedPhoto) -> (width: Int, height: Int) {
+        orientedSize(width: photo.preview.width, height: photo.preview.height)
+    }
+
+    private func renderPasses(extra: BrushStroke?) -> [RenderPass] {
+        guard let photo else { return [] }
+        let size = orientedPreviewSize(photo)
+        return Self.passes(from: layers, width: size.width, height: size.height, extra: extra, selectedID: selectedLayerID)
+    }
+
+    private static func passes(
+        from layers: [EditLayer],
+        width: Int,
+        height: Int,
+        extra: BrushStroke?,
+        selectedID: UUID?
+    ) -> [RenderPass] {
+        var passes: [RenderPass] = []
+        for layer in layers.reversed() where layer.visible && layer.opacity > 0.001 {
+            let extraStroke = layer.id == selectedID ? extra : nil
+            let mask = layer.mask.rasterize(width: width, height: height, extra: extraStroke)
+            var dewrinkle = layer.dewrinkle
+            if !layer.dewrinkleOn { dewrinkle.strength = 0 }
+            var noise = layer.noise
+            noise.limitToMask = true
+            passes.append(RenderPass(
+                mask: mask,
+                edits: EditParameters(dewrinkle: dewrinkle, noise: noise),
+                opacity: layer.opacity
+            ))
+        }
+        return passes
+    }
+
+    private func snapshot() -> EditSnapshot {
+        EditSnapshot(
+            turns: turns,
+            layers: layers,
+            selectedLayerID: selectedLayerID ?? layers.first?.id ?? UUID(),
+            brush: brush
+        )
+    }
+
+    private func restore(_ state: EditSnapshot) {
+        suppressLayerSync = true
+        turns = state.turns
+        layers = state.layers
+        selectedLayerID = state.selectedLayerID
+        brush = state.brush
+        if let layer = selectedLayer {
+            parameters = layer.dewrinkle
+            noise = layer.noise
+        }
+        suppressLayerSync = false
+        inFlight = nil
+        publishHistory()
+        schedulePreview()
+    }
+
+    private func publishHistory() {
+        canUndo = history.canUndo
+        canRedo = history.canRedo
+        historyRows = history.entries.enumerated().map { offset, entry in
+            HistoryRow(
+                id: entry.id,
+                index: offset,
+                name: entry.name,
+                isCurrent: offset == history.index,
+                isFuture: offset > history.index
+            )
+        }
+    }
+
+    private func mirrorParameters() {
+        guard !suppressLayerSync, let selectedIndex else { return }
+        layers[selectedIndex].dewrinkle = parameters
+        layers[selectedIndex].dewrinkleOn = true
+    }
+
+    private func mirrorNoise() {
+        guard !suppressLayerSync, let selectedIndex else { return }
+        layers[selectedIndex].noise = noise
+    }
+
+    private func pullSelectedAdjustments() {
+        guard let layer = selectedLayer else { return }
+        suppressLayerSync = true
+        parameters = layer.dewrinkle
+        noise = layer.noise
+        suppressLayerSync = false
     }
 
     private static func offMain<T>(_ work: @escaping () throws -> T) async throws -> T {

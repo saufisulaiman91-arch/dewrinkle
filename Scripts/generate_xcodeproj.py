@@ -157,6 +157,9 @@ def write_project() -> None:
         "NoiseReduction.swift",
         "Pipeline.swift",
         "Pixels.swift",
+        "HistoryStack.swift",
+        "PictureTurn.swift",
+        "RegionGrow.swift",
         "StructureMask.swift",
         "SubjectMasking.swift",
     ]
@@ -168,6 +171,8 @@ def write_project() -> None:
         ("App/IO/ImageFile.swift", "ImageFile.swift"),
         ("App/Masking/VisionSegmenter.swift", "VisionSegmenter.swift"),
         ("App/UI/CanvasView.swift", "CanvasView.swift"),
+        ("App/UI/EditLayer.swift", "EditLayer.swift"),
+        ("App/UI/SidebarView.swift", "SidebarView.swift"),
         ("App/UI/ContentView.swift", "ContentView.swift"),
         ("App/UI/EditorModel.swift", "EditorModel.swift"),
         ("App/UI/InspectorView.swift", "InspectorView.swift"),
@@ -279,6 +284,8 @@ def write_project() -> None:
         "UI",
         [
             file_refs["App/UI/CanvasView.swift"],
+            file_refs["App/UI/EditLayer.swift"],
+            file_refs["App/UI/SidebarView.swift"],
             file_refs["App/UI/ContentView.swift"],
             file_refs["App/UI/EditorModel.swift"],
             file_refs["App/UI/InspectorView.swift"],

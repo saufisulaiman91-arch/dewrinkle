@@ -41,10 +41,19 @@ struct DewrinkleCommands: Commands {
                 .keyboardShortcut("e")
         }
         CommandGroup(replacing: .undoRedo) {
-            Button("Undo Mask") { EditorModel.shared.undo() }
+            Button("Undo") { EditorModel.shared.undo() }
                 .keyboardShortcut("z")
-            Button("Redo Mask") { EditorModel.shared.redo() }
+            Button("Redo") { EditorModel.shared.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
+        }
+        CommandMenu("Image") {
+            Button("Rotate Left") { EditorModel.shared.rotate(clockwise: false) }
+                .keyboardShortcut("[", modifiers: .command)
+            Button("Rotate Right") { EditorModel.shared.rotate(clockwise: true) }
+                .keyboardShortcut("]", modifiers: .command)
+            Divider()
+            Button("Flip Horizontal") { EditorModel.shared.flip(horizontal: true) }
+            Button("Flip Vertical") { EditorModel.shared.flip(horizontal: false) }
         }
         CommandMenu("Canvas") {
             Button("Fit in Window") { EditorModel.shared.fit() }
@@ -55,14 +64,27 @@ struct DewrinkleCommands: Commands {
                 .keyboardShortcut("\\", modifiers: .command)
             Button("Split View") { EditorModel.shared.splitEnabled.toggle() }
                 .keyboardShortcut("y")
-            Button("Mask Overlay") {
-                EditorModel.shared.maskOverlayVisible.toggle()
-                EditorModel.shared.schedulePreview()
-            }
-            .keyboardShortcut("m")
+            Button("Mask Overlay") { EditorModel.shared.toggleMaskOverlay() }
+                .keyboardShortcut("m")
             Divider()
-            Button("Detect Garment") { EditorModel.shared.detectGarment() }
+            Button("Draw Mask") {
+                EditorModel.shared.canvasTool = .brush
+                EditorModel.shared.brush.mode = .paint
+            }
+            .keyboardShortcut("b")
+            Button("Erase Mask") {
+                EditorModel.shared.canvasTool = .brush
+                EditorModel.shared.brush.mode = .restore
+            }
+            .keyboardShortcut("e")
+            Button("Click to Select") { EditorModel.shared.canvasTool = .clickSelect }
+            Divider()
+            Button("Auto Suggest") { EditorModel.shared.detectGarment() }
                 .keyboardShortcut("a")
+            Button("Select Subject") { EditorModel.shared.applyQuickMask("Select subject") }
+            Button("Select Background") { EditorModel.shared.applyQuickMask("Select background") }
+            Button("Select Skin") { EditorModel.shared.applyQuickMask("Select skin") }
+            Button("Select Clothing") { EditorModel.shared.applyQuickMask("Select clothing") }
         }
     }
 }

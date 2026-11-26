@@ -481,6 +481,46 @@ final class EngineTests: XCTestCase {
             XCTFail("unexpected error \(error)")
         }
     }
+
+    func testClockwiseTurnMovesTheTopLeftToTheTopRight() {
+        var mask = MaskBuffer(width: 4, height: 2, fill: 0)
+        mask.values[mask.index(0, 0)] = 1
+        let turned = mask.applying(.clockwise)
+        XCTAssertEqual(turned.width, 2)
+        XCTAssertEqual(turned.height, 4)
+        XCTAssertGreaterThan(turned.values[turned.index(1, 0)], 0.99)
+        XCTAssertLessThan(turned.values[turned.index(0, 0)], 0.01)
+        let point = PictureTurn.clockwise.map(SIMD2<Float>(0, 0))
+        XCTAssertEqual(point.x, 1, accuracy: 0.0001)
+        XCTAssertEqual(point.y, 0, accuracy: 0.0001)
+    }
+
+    func testHistoryJumpKeepsLaterStepsUntilANewEdit() {
+        struct Box: Equatable { var value: Int }
+        var history = HistoryStack<Box>()
+        history.reset(name: "Original", state: Box(value: 0))
+        history.commit(name: "Brush", state: Box(value: 1))
+        history.commit(name: "Rotate right", state: Box(value: 2))
+        XCTAssertEqual(history.undo()?.value, 1)
+        XCTAssertEqual(history.entries.map(\.name), ["Original", "Brush", "Rotate right"])
+        XCTAssertEqual(history.index, 1)
+        history.commit(name: "Noise reduction", state: Box(value: 3))
+        XCTAssertEqual(history.entries.map(\.name), ["Original", "Brush", "Noise reduction"])
+        XCTAssertFalse(history.canRedo)
+    }
+
+    func testRegionGrowStaysInsideASimilarPatch() {
+        var image = RGBImage(width: 12, height: 8, fill: 0.1)
+        for y in 2..<6 {
+            for x in 2..<7 {
+                image.setPixel(x, y, r: 0.8, g: 0.2, b: 0.2)
+            }
+        }
+        let mask = RegionGrow.mask(of: image, seedU: 4.5 / 12, seedV: 3.5 / 8, tolerance: 0.08)
+        XCTAssertGreaterThan(mask.values[mask.index(3, 3)], 0.9)
+        XCTAssertLessThan(mask.values[mask.index(0, 0)], 0.05)
+        XCTAssertLessThan(mask.values[mask.index(10, 6)], 0.05)
+    }
 }
 
 private let noProtection = StructureParameters(edgeLow: 10, edgeHigh: 11, dilatePixels: 0, featherPixels: 0)

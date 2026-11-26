@@ -33,6 +33,7 @@ struct PercentSlider: View {
     let hint: String
     @Binding var percent: Double
     var range: ClosedRange<Double> = 0...100
+    var onCommit: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -46,7 +47,9 @@ struct PercentSlider: View {
                     .foregroundStyle(Theme.accent)
                     .frame(width: 32, alignment: .trailing)
             }
-            Slider(value: $percent, in: range)
+            Slider(value: $percent, in: range, onEditingChanged: { editing in
+                if !editing { onCommit() }
+            })
                 .controlSize(.small)
                 .tint(Theme.accent)
             Text(hint)

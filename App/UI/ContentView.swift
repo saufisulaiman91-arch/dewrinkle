@@ -8,6 +8,9 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+                SidebarView(model: model)
+                    .frame(width: 232)
+                Divider().background(Theme.hairline)
                 ZStack {
                     Theme.canvas
                     if model.photo == nil {
@@ -17,6 +20,21 @@ struct ContentView: View {
                     }
                     if model.isBusy {
                         busyChip
+                    }
+                    if let toast = model.maskToast {
+                        Text(toast)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.primary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(.black.opacity(0.72), in: Capsule())
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            .padding(.top, 18)
+                            .onAppear {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                                    if model.maskToast == toast { model.maskToast = nil }
+                                }
+                            }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -141,6 +159,17 @@ struct ContentView: View {
             .disabled(model.photo == nil)
         }
         ToolbarItemGroup(placement: .primaryAction) {
+            Button { model.rotate(clockwise: false) } label: { Label("Rotate Left", systemImage: "rotate.left") }
+                .disabled(model.photo == nil)
+            Button { model.rotate(clockwise: true) } label: { Label("Rotate Right", systemImage: "rotate.right") }
+                .disabled(model.photo == nil)
+            Button {
+                model.canvasTool = .brush
+                model.brush.mode = .paint
+            } label: { Label("Draw", systemImage: "paintbrush.pointed") }
+                .disabled(model.photo == nil)
+            Button { model.canvasTool = .clickSelect } label: { Label("Click Mask", systemImage: "wand.and.rays") }
+                .disabled(model.photo == nil)
             Button { model.detectGarment() } label: { Label("Auto", systemImage: "person.crop.rectangle") }
                 .disabled(model.photo == nil)
             Button { model.fit() } label: { Label("Fit", systemImage: "arrow.up.left.and.arrow.down.right") }

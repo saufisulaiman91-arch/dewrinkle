@@ -48,6 +48,7 @@ final class CanvasNSView: NSView {
     private var brushRadius: CGFloat = 220
     private var spaceDown = false
     private var referenceWidth = 1
+    private var clickSelect = false
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -76,7 +77,8 @@ final class CanvasNSView: NSView {
         showOverlay = model.maskOverlayVisible && !model.showingOriginal
         brushRadius = CGFloat(model.brush.radius)
         spaceDown = model.spaceDown
-        referenceWidth = max(model.photo?.orientedWidth ?? 1, 1)
+        clickSelect = model.canvasTool == .clickSelect
+        referenceWidth = max(model.displayReferenceWidth, 1)
         if let photo = model.photo {
             pixelWidth = photo.preview.width
             pixelHeight = photo.preview.height
@@ -137,6 +139,9 @@ final class CanvasNSView: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
+        if clickSelect {
+            return
+        }
         if splitEnabled, abs(point.x - splitX) < 8 {
             draggingSplit = true
             return
@@ -182,6 +187,17 @@ final class CanvasNSView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if clickSelect {
+            if let norm = normalized(point) {
+                model?.clickSelect(
+                    at: norm,
+                    adding: event.modifierFlags.contains(.shift),
+                    subtracting: event.modifierFlags.contains(.option)
+                )
+            }
+            return
+        }
         if draggingSplit || draggingPan {
             draggingSplit = false
             draggingPan = false

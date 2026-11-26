@@ -68,6 +68,45 @@ enum BitmapLayout {
     }
 }
 
+enum ImageGeometry {
+    /// Applies turns in order. Coordinates match `PictureTurn` (top-left, y down)
+    /// once the bitmap is read back with the pipeline's row order.
+    static func apply(_ turns: [PictureTurn], to image: CIImage) -> CIImage {
+        var result = image
+        for turn in turns {
+            result = apply(turn, to: result)
+        }
+        return result
+    }
+
+    static func apply(_ turn: PictureTurn, to image: CIImage) -> CIImage {
+        let extent = image.extent
+        let width = extent.width
+        let height = extent.height
+        let moved = image.transformed(by: CGAffineTransform(translationX: -extent.origin.x, y: -extent.origin.y))
+        let turned: CIImage
+        switch turn {
+        case .flipHorizontal:
+            turned = moved.transformed(by: CGAffineTransform(scaleX: -1, y: 1))
+        case .flipVertical:
+            turned = moved.transformed(by: CGAffineTransform(scaleX: 1, y: -1))
+        case .clockwise:
+            // Clockwise in a y-up plane: (x, y) -> (y, width - x).
+            turned = moved.transformed(by: CGAffineTransform(rotationAngle: -.pi / 2).translatedBy(x: 0, y: width))
+        case .counterClockwise:
+            turned = moved.transformed(by: CGAffineTransform(rotationAngle: .pi / 2).translatedBy(x: height, y: 0))
+        }
+        let origin = turned.extent.origin
+        return turned.transformed(by: CGAffineTransform(translationX: -origin.x, y: -origin.y))
+    }
+}
+
+struct RenderPass: Sendable {
+    var mask: MaskBuffer
+    var edits: EditParameters
+    var opacity: Float
+}
+
 enum CIGraph {
     static func process(
         image: CIImage,
@@ -311,6 +350,46 @@ final class RenderPipeline: @unchecked Sendable {
         return image
     }
 
+    func renderStackedPreview(
+        source: CIImage,
+        passes: [RenderPass],
+        fullShortSide: Int,
+        pixelScale: Float
+    ) throws -> CGImage {
+        let extent = source.extent.integral
+        let width = max(Int(extent.width), 1)
+        let height = max(Int(extent.height), 1)
+        let rgba = try renderStacked(
+            source: source,
+            passes: passes,
+            fullShortSide: fullShortSide,
+            pixelScale: pixelScale,
+            width: width,
+            height: height
+        )
+        guard let image = CGBridge.displayImage(rgba: rgba, width: width, height: height) else {
+            throw RenderError.renderFailed
+        }
+        return image
+    }
+
+    func renderStackedExport(
+        source: CIImage,
+        passes: [RenderPass],
+        fullShortSide: Int,
+        width: Int,
+        height: Int
+    ) throws -> [Float] {
+        try renderStacked(
+            source: source,
+            passes: passes,
+            fullShortSide: fullShortSide,
+            pixelScale: 1,
+            width: width,
+            height: height
+        )
+    }
+
     func renderExport(
         source: CIImage,
         mask: MaskBuffer,
@@ -364,6 +443,43 @@ final class RenderPipeline: @unchecked Sendable {
             working = try CIGraph.process(
                 image: working,
                 mask: maskImage,
+                edits: edits,
+                fullShortSide: fullShortSide,
+                pixelScale: pixelScale
+            )
+        }
+        return try bitmap(working, width: width, height: height)
+    }
+
+    /// Layers are applied from the bottom of the stack to the top. Opacity scales the mask,
+    /// which is already the mix amount for de-wrinkle and for mask-limited noise.
+    private func renderStacked(
+        source: CIImage,
+        passes: [RenderPass],
+        fullShortSide: Int,
+        pixelScale: Float,
+        width: Int,
+        height: Int
+    ) throws -> [Float] {
+        var working = prepared(source, width: width, height: height)
+        for pass in passes where pass.opacity > 0.001 {
+            var mask = pass.mask.resized(toWidth: width, height: height)
+            if pass.opacity < 0.999 {
+                for index in mask.values.indices {
+                    mask.values[index] *= pass.opacity
+                }
+            }
+            guard mask.maximum() > 0.001 else { continue }
+            var edits = pass.edits
+            edits.noise.limitToMask = true
+            let dewrinkleActive = edits.dewrinkle.clampedStrength > 0.0001
+            if !dewrinkleActive && !edits.noise.isActive { continue }
+            if !dewrinkleActive {
+                edits.dewrinkle.strength = 0
+            }
+            working = try CIGraph.process(
+                image: working,
+                mask: CIGraph.maskImage(mask),
                 edits: edits,
                 fullShortSide: fullShortSide,
                 pixelScale: pixelScale

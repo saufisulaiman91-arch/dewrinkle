@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreImage
 import ImageIO
 import UniformTypeIdentifiers
 import XCTest
@@ -56,6 +57,44 @@ final class OrientationTests: XCTestCase {
         )
         let roundTrip = try ImageFile.load(url: exported)
         assertTopLeftIsRed(roundTrip.previewRGB)
+    }
+
+    func testClockwiseTurnMovesTheLeftPixelToTheTop() throws {
+        var bytes: [UInt8] = [
+            255, 0, 0, 255,
+            0, 0, 255, 255
+        ]
+        let data = Data(bytes) as CFData
+        guard let provider = CGDataProvider(data: data),
+              let cgImage = CGImage(
+                width: 2,
+                height: 1,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 8,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else {
+            return XCTFail("fixture")
+        }
+        let turned = ImageGeometry.apply(.clockwise, to: CIImage(cgImage: cgImage))
+        let pipeline = RenderPipeline()
+        let displayed = try pipeline.renderPreview(
+            source: turned,
+            mask: MaskBuffer(width: max(Int(turned.extent.width), 1), height: max(Int(turned.extent.height), 1), fill: 0),
+            edits: EditParameters(dewrinkle: DewrinkleParameters(strength: 0, fine: 0, coarse: 0), noise: .off),
+            fullShortSide: 1,
+            pixelScale: 1
+        )
+        let rgb = CGBridge.rgbImage(from: displayed)
+        XCTAssertEqual(rgb.width, 1)
+        XCTAssertEqual(rgb.height, 2)
+        XCTAssertGreaterThan(rgb.pixels[rgb.offset(0, 0)], 0.5, "left pixel should become the top pixel")
+        XCTAssertGreaterThan(rgb.pixels[rgb.offset(0, 1) + 2], 0.5, "right pixel should become the bottom pixel")
     }
 
     func testExifOrientationSixIsUpright() throws {
