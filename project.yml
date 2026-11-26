@@ -1,0 +1,100 @@
+name: Dewrinkle
+options:
+  bundleIdPrefix: studio.dewinkle
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  SWIFT_VERSION: "5.0"
+  MACOSX_DEPLOYMENT_TARGET: "14.0"
+  ARCHS: arm64
+  SDKROOT: macosx
+targets:
+  DewrinkleCore:
+    type: library.static
+    platform: macOS
+    sources:
+      - Sources/DewrinkleCore
+    settings:
+      GENERATE_INFOPLIST_FILE: NO
+      DEFINES_MODULE: YES
+      MACH_O_TYPE: staticlib
+      SKIP_INSTALL: YES
+      MARKETING_VERSION: "1.0"
+      CURRENT_PROJECT_VERSION: "1"
+      ENABLE_TESTABILITY: YES
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
+  Dewrinkle:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes:
+          - Shaders/Dewrinkle.metal
+      - path: App/Shaders/Dewrinkle.metal
+        buildPhase: none
+    dependencies:
+      - target: DewrinkleCore
+        embed: false
+    postBuildScripts:
+      - name: Compile Core Image kernel
+        script: |
+          "${SRCROOT}/Scripts/compile-kernel.sh"
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.dewinkle.Dewrinkle
+        PRODUCT_NAME: Dewrinkle
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: App/Dewrinkle.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGNING_ALLOWED: YES
+        AD_HOC_CODE_SIGNING_ALLOWED: YES
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        DEVELOPMENT_TEAM: ""
+        PROVISIONING_PROFILE_SPECIFIER: ""
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+  DewrinkleCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/DewrinkleCoreTests
+    dependencies:
+      - target: DewrinkleCore
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: studio.dewinkle.DewrinkleCoreTests
+      GENERATE_INFOPLIST_FILE: YES
+      TEST_HOST: ""
+      BUNDLE_LOADER: ""
+      CODE_SIGN_STYLE: Manual
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGNING_REQUIRED: YES
+      CODE_SIGNING_ALLOWED: YES
+      AD_HOC_CODE_SIGNING_ALLOWED: YES
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+      DEVELOPMENT_TEAM: ""
+      PROVISIONING_PROFILE_SPECIFIER: ""
+      LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks"
+schemes:
+  Dewrinkle:
+    build:
+      targets:
+        Dewrinkle: all
+        DewrinkleCore: all
+        DewrinkleCoreTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DewrinkleCoreTests

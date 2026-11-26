@@ -1,0 +1,55 @@
+Dewrinkle — getting it onto your Mac
+======================================
+
+You need an Apple Silicon Mac (M1 or newer) running macOS Sonoma 14 or later.
+You do not need Xcode, and you do not need a paid Apple Developer account.
+The app edits clothing wrinkles in TIFF, JPEG, and PNG. The longer README
+explains the sliders and the Capture One round trip.
+
+1. Download the app
+   Open the latest release on GitHub and download Dewrinkle-macOS.zip:
+
+   https://github.com/saufisulaiman91-arch/dewrinkle/releases/latest
+
+   If that page is empty, the release is published when changes land on
+   the main branch. Until then, open the Actions tab, pick the newest
+   green "Build Dewrinkle" run, and download the Dewrinkle-macOS artifact.
+   Unzip that download once: inside is Dewrinkle-macOS.zip.
+
+2. Unzip and install
+   Double-click Dewrinkle-macOS.zip. You get Dewrinkle.app.
+   Drag Dewrinkle.app into your Applications folder.
+   Open it from Applications or Spotlight.
+
+3. Allow it the first time (macOS Sequoia)
+   The app is signed to run on your Mac only (an ad-hoc signature, not an
+   Apple Developer certificate). Sequoia blocks the first open of a
+   downloaded copy.
+
+   Either:
+   - System Settings → Privacy & Security → Open Anyway
+     (then open Dewrinkle again), or
+   - Terminal:
+       xattr -dr com.apple.quarantine /Applications/Dewrinkle.app
+     and then open Dewrinkle.
+
+   You only do this once per download. The next time, it opens normally.
+   Use File → Open, or drop a TIFF or JPEG on the window.
+
+Building it yourself (optional)
+-------------------------------
+
+Skip this if you used the download above. You only need it if you want
+to change the app.
+
+1. Install Xcode from the App Store. The first time you open it, let it
+   install the extra components and wait until that finishes.
+
+2. Open Dewrinkle.xcodeproj. If it asks which scheme, choose Dewrinkle.
+   Signing is already set to Sign to Run Locally. Leave the team blank.
+
+3. At the top of the window, the destination should say My Mac.
+   Press the play button (Run). The first build takes a few minutes.
+
+4. After it runs, the Products group in the sidebar has Dewrinkle.app.
+   Right-click it, choose Show in Finder, and drag it into Applications.
