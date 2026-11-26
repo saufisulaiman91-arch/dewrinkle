@@ -89,11 +89,11 @@ public struct DewrinkleParameters: Equatable, Sendable {
     public static let strong = DewrinkleParameters(strength: 0.72, fine: 0.85, coarse: 0.48, preserveFolds: 0.15)
     /// Automatic creases. The mid band is lifted inside the detected mask. Body shading, wider than the coarse radius, stays.
     public static let detected = DewrinkleParameters(
-        strength: 0.92,
-        fine: 0.97,
-        coarse: 0.8,
-        scales: FrequencyScales(detailFraction: 0.0014, fineFraction: 0.012, coarseFraction: 0.05),
-        preserveFolds: 0.38
+        strength: 0.96,
+        fine: 1,
+        coarse: 0.7,
+        scales: FrequencyScales(detailFraction: 0.0014, fineFraction: 0.020, coarseFraction: 0.062),
+        preserveFolds: 0.58
     )
 
     public var fineKeep: Float { 1 - clamp01(fine) }

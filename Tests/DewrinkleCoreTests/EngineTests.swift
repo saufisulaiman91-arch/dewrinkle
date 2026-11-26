@@ -729,23 +729,28 @@ final class EngineTests: XCTestCase {
             .appendingPathComponent("Fixtures")
         let beforeURL = fixtures.appendingPathComponent("baju-kurung-before.png")
         let afterURL = fixtures.appendingPathComponent("baju-kurung-after.png")
-        guard FileManager.default.fileExists(atPath: beforeURL.path),
-              FileManager.default.fileExists(atPath: afterURL.path) else {
-            throw XCTSkip("Place the photographer’s before/after PNGs in Tests/Fixtures to run this comparison.")
-        }
         let before = try loadRGB(beforeURL)
-        let after = try loadRGB(afterURL)
-        XCTAssertEqual(before.width, after.width)
-        XCTAssertEqual(before.height, after.height)
+        let target = try loadRGB(afterURL)
         let clothing = satinCloth(before)
         let mask = WrinkleDetector.mask(image: before, clothing: clothing)
+        XCTAssertGreaterThan(regionMean(mask, y: 0.50..<0.76, x: 0.34..<0.66), 0.45, "the satin skirt should be selected")
+        XCTAssertLessThan(regionMean(mask, y: 0.10..<0.26, x: 0.08..<0.34), 0.22, "the left embroidery should stay out")
+        XCTAssertLessThan(regionMean(mask, y: 0.10..<0.26, x: 0.66..<0.92), 0.22, "the right embroidery should stay out")
         let output = FrequencySeparation.apply(before, mask: mask, parameters: .detected, structure: noProtection)
-        let beforeEnergy = WrinkleDetector.creaseEnergy(of: before, region: clothing)
-        let outputEnergy = WrinkleDetector.creaseEnergy(of: output, region: clothing)
-        let targetEnergy = WrinkleDetector.creaseEnergy(of: after, region: clothing)
-        XCTAssertLessThan(outputEnergy, beforeEnergy * 0.8)
-        XCTAssertLessThan(abs(outputEnergy - targetEnergy), max(0.012, targetEnergy * 0.5))
-        writeRegression(before: before, mask: mask, after: output, name: "baju-kurung")
+        let skirt = fractionalMask(before, y: 0.50..<0.76, x: 0.34..<0.66)
+        let beforeEnergy = WrinkleDetector.creaseEnergy(of: before, region: skirt)
+        let outputEnergy = WrinkleDetector.creaseEnergy(of: output, region: skirt)
+        let targetSkirt = fractionalMask(target, y: 0.50..<0.76, x: 0.34..<0.66)
+        let targetEnergy = WrinkleDetector.creaseEnergy(of: target, region: targetSkirt)
+        XCTAssertGreaterThan(beforeEnergy, targetEnergy)
+        XCTAssertLessThan(outputEnergy, beforeEnergy * 0.72, "skirt crease energy should fall toward the retouched photo")
+        XCTAssertLessThan(outputEnergy, beforeEnergy - (beforeEnergy - targetEnergy) * 0.35, "at least a third of the way from the before to the target")
+        XCTAssertLessThan(regionDelta(before, output, y: 0.12..<0.28, x: 0.10..<0.32), 0.025, "left embroidery stays crisp")
+        XCTAssertLessThan(regionDelta(before, output, y: 0.12..<0.28, x: 0.68..<0.90), 0.025, "right embroidery stays crisp")
+        let chromaBefore = regionChroma(before, y: 0.55..<0.74, x: 0.38..<0.62)
+        let chromaAfter = regionChroma(output, y: 0.55..<0.74, x: 0.38..<0.62)
+        XCTAssertEqual(chromaAfter, chromaBefore, accuracy: 0.015, "satin colour should not shift")
+        writeRegression(before: before, mask: mask, after: output, name: "baju-kurung", target: target)
     }
 }
 
@@ -991,12 +996,109 @@ private func loadRGB(_ url: URL) throws -> RGBImage {
     return RGBImage(width: width, height: height, pixels: pixels)
 }
 
-private func writeRegression(before: RGBImage, mask: MaskBuffer, after: RGBImage, name: String) {
+private func fractionalMask(_ image: RGBImage, y: Range<Double>, x: Range<Double>) -> MaskBuffer {
+    var mask = MaskBuffer(width: image.width, height: image.height, fill: 0)
+    let y0 = max(0, Int(y.lowerBound * Double(image.height)))
+    let y1 = min(image.height, Int(y.upperBound * Double(image.height)))
+    let x0 = max(0, Int(x.lowerBound * Double(image.width)))
+    let x1 = min(image.width, Int(x.upperBound * Double(image.width)))
+    guard y1 > y0, x1 > x0 else { return mask }
+    for yy in y0..<y1 {
+        for xx in x0..<x1 {
+            mask.values[mask.index(xx, yy)] = 1
+        }
+    }
+    return mask
+}
+
+private func regionMean(_ mask: MaskBuffer, y: Range<Double>, x: Range<Double>) -> Float {
+    let y0 = max(0, Int(y.lowerBound * Double(mask.height)))
+    let y1 = min(mask.height, Int(y.upperBound * Double(mask.height)))
+    let x0 = max(0, Int(x.lowerBound * Double(mask.width)))
+    let x1 = min(mask.width, Int(x.upperBound * Double(mask.width)))
+    var sum: Float = 0
+    var count: Float = 0
+    guard y1 > y0, x1 > x0 else { return 0 }
+    for yy in y0..<y1 {
+        for xx in x0..<x1 {
+            sum += mask.values[mask.index(xx, yy)]
+            count += 1
+        }
+    }
+    return sum / max(count, 1)
+}
+
+private func regionDelta(_ a: RGBImage, _ b: RGBImage, y: Range<Double>, x: Range<Double>) -> Float {
+    let y0 = max(0, Int(y.lowerBound * Double(a.height)))
+    let y1 = min(a.height, Int(y.upperBound * Double(a.height)))
+    let x0 = max(0, Int(x.lowerBound * Double(a.width)))
+    let x1 = min(a.width, Int(x.upperBound * Double(a.width)))
+    var sum: Float = 0
+    var count: Float = 0
+    for yy in y0..<y1 {
+        for xx in x0..<x1 {
+            let ia = a.offset(xx, yy)
+            let ib = b.offset(xx, yy)
+            sum += abs(a.pixels[ia] - b.pixels[ib])
+            sum += abs(a.pixels[ia + 1] - b.pixels[ib + 1])
+            sum += abs(a.pixels[ia + 2] - b.pixels[ib + 2])
+            count += 3
+        }
+    }
+    return sum / max(count, 1)
+}
+
+private func regionChroma(_ image: RGBImage, y: Range<Double>, x: Range<Double>) -> Float {
+    let y0 = max(0, Int(y.lowerBound * Double(image.height)))
+    let y1 = min(image.height, Int(y.upperBound * Double(image.height)))
+    let x0 = max(0, Int(x.lowerBound * Double(image.width)))
+    let x1 = min(image.width, Int(x.upperBound * Double(image.width)))
+    var sum: Float = 0
+    var count: Float = 0
+    for yy in y0..<y1 {
+        for xx in x0..<x1 {
+            let index = image.offset(xx, yy)
+            sum += image.pixels[index] - image.pixels[index + 2]
+            count += 1
+        }
+    }
+    return sum / max(count, 1)
+}
+
+private func fitted(_ image: RGBImage, width: Int, height: Int) -> RGBImage {
+    let scale = min(Float(width) / Float(image.width), Float(height) / Float(image.height))
+    let fittedWidth = max(1, Int((Float(image.width) * scale).rounded()))
+    let fittedHeight = max(1, Int((Float(image.height) * scale).rounded()))
+    var output = RGBImage(width: width, height: height, fill: 0)
+    let originX = (width - fittedWidth) / 2
+    let originY = (height - fittedHeight) / 2
+    for y in 0..<fittedHeight {
+        let v = (Float(y) + 0.5) / Float(fittedHeight)
+        for x in 0..<fittedWidth {
+            let u = (Float(x) + 0.5) / Float(fittedWidth)
+            let sx = min(max(Int(u * Float(image.width)), 0), image.width - 1)
+            let sy = min(max(Int(v * Float(image.height)), 0), image.height - 1)
+            let source = image.offset(sx, sy)
+            output.setPixel(
+                originX + x,
+                originY + y,
+                r: image.pixels[source],
+                g: image.pixels[source + 1],
+                b: image.pixels[source + 2]
+            )
+        }
+    }
+    return output
+}
+
+private func writeRegression(before: RGBImage, mask: MaskBuffer, after: RGBImage, name: String, target: RGBImage? = nil) {
     guard let directory = ProcessInfo.processInfo.environment["DEWRINKLE_REGRESSION_DIR"], !directory.isEmpty else { return }
     let folder = URL(fileURLWithPath: directory, isDirectory: true)
     try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let aligned = mask.resized(toWidth: before.width, height: before.height)
-    let width = before.width * 3
+    let reference = target.map { fitted($0, width: before.width, height: before.height) }
+    let panels = reference == nil ? 3 : 4
+    let width = before.width * panels
     let height = before.height
     var bytes = [UInt8](repeating: 255, count: width * height * 4)
     for y in 0..<height {
@@ -1004,17 +1106,22 @@ private func writeRegression(before: RGBImage, mask: MaskBuffer, after: RGBImage
             let source = before.offset(x, y)
             let edited = after.offset(x, y)
             let coverage = aligned.values[y * before.width + x]
-            for panel in 0..<3 {
+            for panel in 0..<panels {
                 let origin = panel * before.width
-                let pixel = (panel == 2) ? edited : source
                 let destination = (y * width + origin + x) * 4
-                var red = before.pixels[pixel]
-                var green = before.pixels[pixel + 1]
-                var blue = before.pixels[pixel + 2]
+                var red = before.pixels[source]
+                var green = before.pixels[source + 1]
+                var blue = before.pixels[source + 2]
                 if panel == 2 {
-                    red = after.pixels[pixel]
-                    green = after.pixels[pixel + 1]
-                    blue = after.pixels[pixel + 2]
+                    red = after.pixels[edited]
+                    green = after.pixels[edited + 1]
+                    blue = after.pixels[edited + 2]
+                }
+                if panel == 3, let reference {
+                    let index = reference.offset(x, y)
+                    red = reference.pixels[index]
+                    green = reference.pixels[index + 1]
+                    blue = reference.pixels[index + 2]
                 }
                 if panel == 1 {
                     red = red * (1 - coverage) + coverage

@@ -59,42 +59,43 @@ public enum WrinkleDetector {
         let score = hessianLineStrength(band, width: width, height: height)
         let density = GaussianBlur.plane(grain, width: width, height: height, sigma: max(2.8, midSigma * 0.75))
         let sharp = gradientMagnitude(detail, width: width, height: height)
-        let slope = gradientMagnitude(band, width: width, height: height)
         let cloth = clothing.values
 
-        let texRef = max(0.008, percentile(density, mask: cloth, fraction: 0.60))
-        let slopePeak = max(percentile(slope, mask: cloth, fraction: 0.98), 1e-4)
-        var exclusion = MaskBuffer(width: width, height: height, fill: 0)
-        // Seams, hems, and beading are thin and high-contrast, so they live in the
-        // grain. A soft crease is wider than the detail blur and barely shows up here.
-        let grainCut = max(0.045, texRef * 2.2)
-        for index in grain.indices where cloth[index] > 0.4 && (grain[index] > grainCut || sharp[index] > 0.09) {
-            exclusion.values[index] = 1
+        let texRef = max(0.004, percentile(density, mask: cloth, fraction: 0.55))
+        let densityCut = max(0.008, texRef * (1.35 + 0.7 * settings.sensitivity))
+        var textureExclusion = MaskBuffer(width: width, height: height, fill: 0)
+        for index in density.indices where cloth[index] > 0.4 && density[index] > densityCut {
+            textureExclusion.values[index] = 1
         }
-        exclusion = StructureMask.dilate(exclusion, radius: max(2, Int((midSigma * 0.5).rounded())))
+        textureExclusion = StructureMask.dilate(textureExclusion, radius: max(4, Int((midSigma * 0.85).rounded())))
 
-        var gated = [Float](repeating: 0, count: score.count)
+        var edgeExclusion = MaskBuffer(width: width, height: height, fill: 0)
+        for index in sharp.indices where cloth[index] > 0.4 && sharp[index] > 0.038 {
+            edgeExclusion.values[index] = 1
+        }
+        edgeExclusion = StructureMask.dilate(edgeExclusion, radius: max(2, Int((midSigma * 0.4).rounded())))
+
+        // The mask is the smooth satin: cloth, minus embroidery and minus seams.
+        // Sensitivity raises how much of that satin is smoothed. Ridge strength
+        // still lifts the crease centers to full.
+        let amount = 0.55 + 0.45 * settings.sensitivity
+        let ridgeRank = min(0.985, max(0.8, 0.975 - 0.08 * settings.sensitivity))
+        var smoothGate = [Float](repeating: 0, count: score.count)
         for index in score.indices {
-            let texture = 1 - smoothstep(texRef * 2.8, texRef * 4.6, density[index])
-            let edge = 1 - exclusion.values[index]
-            let alongTheLine = 1 - smoothstep(slopePeak * 0.18, slopePeak * 0.5, slope[index])
-            gated[index] = score[index] * texture * edge * alongTheLine * cloth[index]
+            let blocked = max(textureExclusion.values[index], edgeExclusion.values[index])
+            smoothGate[index] = cloth[index] * (1 - blocked)
         }
-        let peak = percentile(gated, mask: cloth, fraction: 0.995)
-        guard peak > 1e-5 else {
-            return MaskBuffer(width: width, height: height, fill: 0)
-        }
-        let threshold = peak * (0.62 - 0.48 * settings.sensitivity)
-        let knee = peak * 0.08
+        let creaseCut = percentile(score, mask: smoothGate, fraction: ridgeRank)
         var ridge = MaskBuffer(width: width, height: height, fill: 0)
-        for index in gated.indices {
-            ridge.values[index] = smoothstep(threshold - knee, threshold + knee, gated[index])
+        for index in score.indices {
+            let satin = smoothGate[index] * amount
+            let crease = smoothGate[index] * smoothstep(creaseCut * 0.65, creaseCut * 1.15 + 1e-6, score[index])
+            ridge.values[index] = max(satin, crease)
         }
-        ridge = StructureMask.dilate(ridge, radius: max(1, Int((midSigma * 0.45).rounded())))
-        ridge = GaussianBlur.mask(ridge, sigma: max(0.8, midSigma * 0.28))
+        ridge = GaussianBlur.mask(ridge, sigma: max(1.1, midSigma * 0.35))
         for index in ridge.values.indices {
-            let texture = 1 - smoothstep(texRef * 2.8, texRef * 4.6, density[index])
-            ridge.values[index] *= texture * (1 - exclusion.values[index]) * cloth[index]
+            let blocked = max(textureExclusion.values[index], edgeExclusion.values[index])
+            ridge.values[index] *= (1 - blocked) * cloth[index]
         }
         return ridge
     }
