@@ -34,6 +34,13 @@
 			sourceTree = "<group>";
 		};
 
+		5777DD66C5896C0397FC5B52 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "HijabRegion.swift";
+			sourceTree = "<group>";
+		};
+
 		4580659C1164F3985E60BEAC /* PBXFileReference */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
@@ -62,6 +69,13 @@
 			sourceTree = "<group>";
 		};
 
+		372F537F31D8EADF91253F89 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "HistoryStack.swift";
+			sourceTree = "<group>";
+		};
+
 		DF54A6C2980496CAEAF7D73C /* PBXFileReference */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
@@ -73,13 +87,6 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = "RegionGrow.swift";
-			sourceTree = "<group>";
-		};
-
-		372F537F31D8EADF91253F89 /* PBXFileReference */ = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = "HistoryStack.swift";
 			sourceTree = "<group>";
 		};
 
@@ -267,6 +274,11 @@
 			fileRef = C06478ACAFAB3435BD96C289;
 		};
 
+		A7ADB52B8A93119751E936AC /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 5777DD66C5896C0397FC5B52;
+		};
+
 		FD414148ADE68AAD5D8532A6 /* PBXBuildFile */ = {
 			isa = PBXBuildFile;
 			fileRef = 4580659C1164F3985E60BEAC;
@@ -287,6 +299,11 @@
 			fileRef = A095DE932D6BD3A65D5259EE;
 		};
 
+		B1F113834F046975EFD33226 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 372F537F31D8EADF91253F89;
+		};
+
 		64B8C8D852ED8E3849A5467E /* PBXBuildFile */ = {
 			isa = PBXBuildFile;
 			fileRef = DF54A6C2980496CAEAF7D73C;
@@ -295,11 +312,6 @@
 		9FEAAAE6598A8095535637EF /* PBXBuildFile */ = {
 			isa = PBXBuildFile;
 			fileRef = F18AEA624505CAF8503F5526;
-		};
-
-		B1F113834F046975EFD33226 /* PBXBuildFile */ = {
-			isa = PBXBuildFile;
-			fileRef = 372F537F31D8EADF91253F89;
 		};
 
 		0F36F5A2F4BE1FB10EB9878E /* PBXBuildFile */ = {
@@ -405,13 +417,14 @@
 				9889D87466F13AB611981426,
 				05FBDDD1FD0CEF1623B9EB03,
 				5DE765868B4159720A845318,
+				A7ADB52B8A93119751E936AC,
 				FD414148ADE68AAD5D8532A6,
 				8A4482FBD859BF69460AF3D9,
 				9DD8A55E96F7FA995BBD2664,
 				C900A7AA6787C50159178EE7,
+				B1F113834F046975EFD33226,
 				64B8C8D852ED8E3849A5467E,
 				9FEAAAE6598A8095535637EF,
-				B1F113834F046975EFD33226,
 				0F36F5A2F4BE1FB10EB9878E,
 				ED9A476BF5CE4228AE0616A7,
 			);
@@ -509,13 +522,14 @@
 				8EA2C27DF26C04FAF02D1A37,
 				BC0E4F6680F859CE68360619,
 				C06478ACAFAB3435BD96C289,
+				5777DD66C5896C0397FC5B52,
 				4580659C1164F3985E60BEAC,
 				A072ECD2C5B8F538E7C4EF4F,
 				05A00A6F01DD1EFB0DC6226B,
 				A095DE932D6BD3A65D5259EE,
+				372F537F31D8EADF91253F89,
 				DF54A6C2980496CAEAF7D73C,
 				F18AEA624505CAF8503F5526,
-				372F537F31D8EADF91253F89,
 				B1CF2BA702836B4643739E49,
 				B829FED33E8DC1CA2B0007C7,
 			);

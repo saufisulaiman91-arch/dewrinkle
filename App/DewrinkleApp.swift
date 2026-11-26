@@ -84,6 +84,7 @@ struct DewrinkleCommands: Commands {
             Button("Select Subject") { EditorModel.shared.applyQuickMask("Select subject") }
             Button("Select Background") { EditorModel.shared.applyQuickMask("Select background") }
             Button("Select Skin") { EditorModel.shared.applyQuickMask("Select skin") }
+            Button("Select Hijab") { EditorModel.shared.applyQuickMask("Select hijab") }
             Button("Select Clothing") { EditorModel.shared.applyQuickMask("Select clothing") }
         }
     }

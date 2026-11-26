@@ -162,6 +162,7 @@ struct InspectorView: View {
             .buttonStyle(.bordered)
             HStack(spacing: 8) {
                 Button("Skin") { model.applyQuickMask("Select skin") }
+                Button("Hijab") { model.applyQuickMask("Select hijab") }
                 Button("Ground") { model.applyQuickMask("Select background") }
             }
             .controlSize(.small)
@@ -174,7 +175,7 @@ struct InspectorView: View {
             .foregroundStyle(Theme.accent)
             PercentSlider(
                 title: "Select tolerance",
-                hint: "Used when a click misses the person, cloth, skin, and background masks.",
+                hint: "How far Select Hijab and a missed click grow into similar colour. Hijab stays off the face and off the dress.",
                 percent: $model.selectTolerance,
                 range: 2...40
             )

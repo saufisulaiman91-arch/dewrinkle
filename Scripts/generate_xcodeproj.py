@@ -153,6 +153,7 @@ def write_project() -> None:
         "ExportSettings.swift",
         "FrequencySeparation.swift",
         "GaussianBlur.swift",
+        "HijabRegion.swift",
         "MaskBuffer.swift",
         "NoiseReduction.swift",
         "Pipeline.swift",

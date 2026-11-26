@@ -509,6 +509,53 @@ final class EngineTests: XCTestCase {
         XCTAssertFalse(history.canRedo)
     }
 
+    func testHijabStaysOffTheFaceAndOffTheDress() {
+        let width = 40
+        let height = 48
+        var image = RGBImage(width: width, height: height, fill: 0.45)
+        for y in 0..<height {
+            for x in 0..<width {
+                image.setPixel(x, y, r: 0.42, g: 0.16, b: 0.1)
+            }
+        }
+        let face = NormalizedRect(x: 0.34, y: 0.18, width: 0.32, height: 0.16)
+        for y in 0..<height {
+            for x in 0..<width {
+                let u = (Float(x) + 0.5) / Float(width)
+                let v = (Float(y) + 0.5) / Float(height)
+                let nx = (u - (face.x + face.width / 2)) / (face.width * 0.5)
+                let ny = (v - (face.y + face.height / 2)) / (face.height * 0.5)
+                let ellipse = hypot(nx, ny)
+                if ellipse < 0.9 {
+                    image.setPixel(x, y, r: 0.78, g: 0.55, b: 0.42)
+                } else if ellipse < 1.7 && v < face.y + face.height + face.height * 0.8 {
+                    image.setPixel(x, y, r: 0.08, g: 0.16, b: 0.32)
+                }
+            }
+        }
+        let person = MaskBuffer(width: width, height: height, fill: 1)
+        var skin = MaskBuffer(width: width, height: height, fill: 0)
+        for y in 0..<height {
+            for x in 0..<width {
+                let u = (Float(x) + 0.5) / Float(width)
+                let v = (Float(y) + 0.5) / Float(height)
+                let nx = (u - (face.x + face.width / 2)) / (face.width * 0.5)
+                let ny = (v - (face.y + face.height / 2)) / (face.height * 0.5)
+                if hypot(nx, ny) < 0.95 {
+                    skin.values[skin.index(x, y)] = 1
+                }
+            }
+        }
+        let hijab = HijabRegion.mask(image: image, person: person, faces: [face], skin: skin, tolerance: 0.12)
+        let scarfV = (face.y + face.height / 2) - face.height * 0.7
+        let scarf = hijab.index(width / 2, min(height - 1, max(0, Int(scarfV * Float(height)))))
+        let cheek = hijab.index(width / 2, Int(Float(height) * (face.y + face.height * 0.45)))
+        let skirt = hijab.index(width / 2, height - 4)
+        XCTAssertGreaterThan(hijab.values[scarf], 0.5)
+        XCTAssertLessThan(hijab.values[cheek], 0.2)
+        XCTAssertLessThan(hijab.values[skirt], 0.2)
+    }
+
     func testRegionGrowStaysInsideASimilarPatch() {
         var image = RGBImage(width: 12, height: 8, fill: 0.1)
         for y in 2..<6 {

@@ -220,8 +220,9 @@ final class EditorModel: ObservableObject {
         Task {
             do {
                 let segmenter = VisionForegroundSegmenter()
-                let built = try await segmenter.regions(for: rgb)
-                let suggestion = built.clothing.mean() > 0.01 ? built.clothing : built.subject
+                let built = try await segmenter.regions(for: rgb, tolerance: Float(self.selectTolerance / 100))
+                let outfit = Self.unionMasks(built.clothing, built.hijab)
+                let suggestion = outfit.mean() > 0.01 ? outfit : built.subject
                 if suggestion.mean() < 0.004 {
                     self.status = "No subject found. Paint the creases, or click the cloth."
                 } else {
@@ -559,11 +560,15 @@ final class EditorModel: ObservableObject {
         busyLabel = kind
         Task {
             do {
-                let built = try await VisionForegroundSegmenter().regions(for: rgb)
+                let built = try await VisionForegroundSegmenter().regions(
+                    for: rgb,
+                    tolerance: Float(self.selectTolerance / 100)
+                )
                 let mask: MaskBuffer
                 switch kind {
                 case "Select background": mask = built.background
                 case "Select skin": mask = built.skin
+                case "Select hijab": mask = built.hijab
                 case "Select clothing": mask = built.clothing
                 default: mask = built.subject
                 }
@@ -705,6 +710,15 @@ final class EditorModel: ObservableObject {
         guard let photo else { return [] }
         let size = orientedPreviewSize(photo)
         return Self.passes(from: layers, width: size.width, height: size.height, extra: extra, selectedID: selectedLayerID)
+    }
+
+    private static func unionMasks(_ first: MaskBuffer, _ second: MaskBuffer) -> MaskBuffer {
+        let other = second.resized(toWidth: first.width, height: first.height)
+        var output = first
+        for index in output.values.indices {
+            output.values[index] = max(output.values[index], other.values[index])
+        }
+        return output
     }
 
     private static func passes(

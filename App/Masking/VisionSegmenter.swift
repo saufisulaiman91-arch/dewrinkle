@@ -123,10 +123,11 @@ final class VisionForegroundSegmenter: ForegroundSegmenting {
         var subject: MaskBuffer
         var background: MaskBuffer
         var skin: MaskBuffer
+        var hijab: MaskBuffer
         var clothing: MaskBuffer
     }
 
-    func regions(for image: RGBImage) async throws -> Regions {
+    func regions(for image: RGBImage, tolerance: Float = 0.14) async throws -> Regions {
         guard let cgImage = CGBridge.cgImage(from: image) else {
             throw MaskingError.failed("Couldn’t read the preview for segmentation.")
         }
@@ -136,14 +137,27 @@ final class VisionForegroundSegmenter: ForegroundSegmenting {
             let faces = (try? Self.faces(in: cgImage)) ?? []
             let hands = (try? Self.hands(in: cgImage)) ?? []
             let skin = Self.skinMask(image: image, faces: faces, hands: hands)
-            let clothing = Self.subtract(skin, from: subject)
+            let hijab = HijabRegion.mask(
+                image: image,
+                person: subject,
+                faces: faces,
+                skin: skin,
+                tolerance: tolerance
+            )
+            let clothing = Self.subtract(hijab, from: Self.subtract(skin, from: subject))
             let background = Self.invert(subject)
-            return Regions(subject: subject, background: background, skin: skin, clothing: clothing)
+            return Regions(
+                subject: subject,
+                background: background,
+                skin: skin,
+                hijab: hijab,
+                clothing: clothing
+            )
         }.value
     }
 
     func region(for image: RGBImage, at point: SIMD2<Float>, tolerance: Float) async throws -> (MaskBuffer, String) {
-        let built = try await regions(for: image)
+        let built = try await regions(for: image, tolerance: tolerance)
         if let choice = Self.choice(in: built, at: point) {
             return choice
         }
@@ -154,6 +168,7 @@ final class VisionForegroundSegmenter: ForegroundSegmenting {
     private static func choice(in regions: Regions, at point: SIMD2<Float>) -> (MaskBuffer, String)? {
         let candidates: [(MaskBuffer, String)] = [
             (regions.skin, "Select skin"),
+            (regions.hijab, "Select hijab"),
             (regions.clothing, "Select clothing"),
             (regions.subject, "Select subject"),
             (regions.background, "Select background")
