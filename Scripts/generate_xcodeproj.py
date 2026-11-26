@@ -135,11 +135,14 @@ def q(value: str) -> str:
 
 
 def format_setting(value: str) -> str:
-    if value == "":
-        return '""'
-    simple = re.fullmatch(r"[A-Za-z0-9_./$@()+]+", value)
-    variable = re.fullmatch(r"\$\([A-Za-z0-9_]+\)[A-Za-z0-9_./$@()+-]*", value)
-    if simple or variable:
+    # Xcode's project parser accepts unquoted identifiers, YES/NO, and integers.
+    # @rpath, $(SETTING)/path, versions, and "-" must be quoted or the project
+    # is reported as damaged.
+    if value in {"YES", "NO"}:
+        return value
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+        return value
+    if re.fullmatch(r"-?[0-9]+", value):
         return value
     return q(value)
 
@@ -244,7 +247,8 @@ def write_project() -> None:
     test_embed_phase = phase("PBXCopyFilesBuildPhase", "test-embed", [test_embed], embed_extra)
 
     script_phase = uid("phase:kernel")
-    script = q('"${SRCROOT}/Scripts/compile-kernel.sh"')
+    # Trailing \n is part of the OpenStep string. Xcode's parser expects it.
+    script = '"' + '\\"' + '${SRCROOT}/Scripts/compile-kernel.sh' + '\\"\\n"'
     add(
         script_phase,
         "PBXShellScriptBuildPhase",
