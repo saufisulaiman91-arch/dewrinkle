@@ -1,0 +1,974 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+		2DA7604FA8A666AE3190D7F3 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "Brush.swift";
+			sourceTree = "<group>";
+		};
+
+		8EA2C27DF26C04FAF02D1A37 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "ExportSettings.swift";
+			sourceTree = "<group>";
+		};
+
+		BC0E4F6680F859CE68360619 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "FrequencySeparation.swift";
+			sourceTree = "<group>";
+		};
+
+		C06478ACAFAB3435BD96C289 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "GaussianBlur.swift";
+			sourceTree = "<group>";
+		};
+
+		4580659C1164F3985E60BEAC /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "MaskBuffer.swift";
+			sourceTree = "<group>";
+		};
+
+		A072ECD2C5B8F538E7C4EF4F /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "NoiseReduction.swift";
+			sourceTree = "<group>";
+		};
+
+		05A00A6F01DD1EFB0DC6226B /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "Pipeline.swift";
+			sourceTree = "<group>";
+		};
+
+		A095DE932D6BD3A65D5259EE /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "Pixels.swift";
+			sourceTree = "<group>";
+		};
+
+		B1CF2BA702836B4643739E49 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "StructureMask.swift";
+			sourceTree = "<group>";
+		};
+
+		B829FED33E8DC1CA2B0007C7 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "SubjectMasking.swift";
+			sourceTree = "<group>";
+		};
+
+		D9C97E505B7AB7C1D8E9FE07 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "DewrinkleApp.swift";
+			sourceTree = "<group>";
+		};
+
+		B4D2D1ACC8BB367F043FE629 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "CIPipeline.swift";
+			sourceTree = "<group>";
+		};
+
+		9A009BABF672353527B2CA81 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "KernelSources.swift";
+			sourceTree = "<group>";
+		};
+
+		15F7BD6AF85D8DE2C9625D08 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "CGBridge.swift";
+			sourceTree = "<group>";
+		};
+
+		EC9C97F99F777A3F130C7956 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "ImageFile.swift";
+			sourceTree = "<group>";
+		};
+
+		015347A71C543953A83BB9DE /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "VisionSegmenter.swift";
+			sourceTree = "<group>";
+		};
+
+		BFE1540E55C9B167B56F0A96 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "CanvasView.swift";
+			sourceTree = "<group>";
+		};
+
+		9B3D2D259E88E7F9D463EE06 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "ContentView.swift";
+			sourceTree = "<group>";
+		};
+
+		BBBB0606E4C49E45646C1298 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "EditorModel.swift";
+			sourceTree = "<group>";
+		};
+
+		574F092B5816ECF0B731279E /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "InspectorView.swift";
+			sourceTree = "<group>";
+		};
+
+		765A81545A8023B165A230A6 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "Theme.swift";
+			sourceTree = "<group>";
+		};
+
+		BAD1F166B9535FE35163FE6B /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "EngineTests.swift";
+			sourceTree = "<group>";
+		};
+
+		36291340F8E26B93BEB58318 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			path = "Info.plist";
+			sourceTree = "<group>";
+		};
+
+		CDF37532034B5926FB9F120D /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.entitlements;
+			path = "Dewrinkle.entitlements";
+			sourceTree = "<group>";
+		};
+
+		435A866B34A3731DA36AF1DF /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.metal;
+			path = "Dewrinkle.metal";
+			sourceTree = "<group>";
+		};
+
+		BEB3D2DA8A848A64DCCC6EFC /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = folder.assetcatalog;
+			path = "Assets.xcassets";
+			sourceTree = "<group>";
+		};
+
+		84337AD8D27FCD69AF2C4FC2 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			path = Dewrinkle.app;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+
+		64133D2BCDD72274D4723519 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.framework;
+			includeInIndex = 0;
+			path = DewrinkleCore.framework;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+
+		B5A2BEBE86215B3F6D160426 /* PBXFileReference */ = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			path = DewrinkleCoreTests.xctest;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+
+		1E8F93279C3996036A240513 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 2DA7604FA8A666AE3190D7F3;
+		};
+
+		9889D87466F13AB611981426 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 8EA2C27DF26C04FAF02D1A37;
+		};
+
+		05FBDDD1FD0CEF1623B9EB03 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = BC0E4F6680F859CE68360619;
+		};
+
+		5DE765868B4159720A845318 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = C06478ACAFAB3435BD96C289;
+		};
+
+		FD414148ADE68AAD5D8532A6 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 4580659C1164F3985E60BEAC;
+		};
+
+		8A4482FBD859BF69460AF3D9 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = A072ECD2C5B8F538E7C4EF4F;
+		};
+
+		9DD8A55E96F7FA995BBD2664 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 05A00A6F01DD1EFB0DC6226B;
+		};
+
+		C900A7AA6787C50159178EE7 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = A095DE932D6BD3A65D5259EE;
+		};
+
+		0F36F5A2F4BE1FB10EB9878E /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = B1CF2BA702836B4643739E49;
+		};
+
+		ED9A476BF5CE4228AE0616A7 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = B829FED33E8DC1CA2B0007C7;
+		};
+
+		CEF284C274E356542F1F09A9 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = D9C97E505B7AB7C1D8E9FE07;
+		};
+
+		B88A3060D0624193DED1358F /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = B4D2D1ACC8BB367F043FE629;
+		};
+
+		4E2FE0B3E7771C5FD1D37441 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 9A009BABF672353527B2CA81;
+		};
+
+		454932345D65A71B509964C3 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 15F7BD6AF85D8DE2C9625D08;
+		};
+
+		8CB33CC8050C2E909CA47DEF /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = EC9C97F99F777A3F130C7956;
+		};
+
+		1404924635919016DA59C0E7 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 015347A71C543953A83BB9DE;
+		};
+
+		C2534EC599D098CCA4DA9CBA /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = BFE1540E55C9B167B56F0A96;
+		};
+
+		9F6AF64B99F33AB88523DC91 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 9B3D2D259E88E7F9D463EE06;
+		};
+
+		11579B1AFB98CA31FFDBE997 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = BBBB0606E4C49E45646C1298;
+		};
+
+		388485413CF0586B1113DB27 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 574F092B5816ECF0B731279E;
+		};
+
+		FA1E6DCF919330F6D1C6DF09 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 765A81545A8023B165A230A6;
+		};
+
+		9CB2788BFB8C897BDEB713B1 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = BAD1F166B9535FE35163FE6B;
+		};
+
+		536D1B443F1ECF56DF9DEEBC /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 64133D2BCDD72274D4723519;
+		};
+
+		208F3E1294F86C098D77FDB0 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 64133D2BCDD72274D4723519;
+			settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy); };
+		};
+
+		92FFAE3DE8039044F6351EA1 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 64133D2BCDD72274D4723519;
+		};
+
+		3DA9793A6D640506FAA7D136 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 64133D2BCDD72274D4723519;
+			settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy); };
+		};
+
+		543E8408D996E7ED378179E0 /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = BEB3D2DA8A848A64DCCC6EFC;
+		};
+
+		C859573C343C44D62F514308 /* PBXSourcesBuildPhase */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1E8F93279C3996036A240513,
+				9889D87466F13AB611981426,
+				05FBDDD1FD0CEF1623B9EB03,
+				5DE765868B4159720A845318,
+				FD414148ADE68AAD5D8532A6,
+				8A4482FBD859BF69460AF3D9,
+				9DD8A55E96F7FA995BBD2664,
+				C900A7AA6787C50159178EE7,
+				0F36F5A2F4BE1FB10EB9878E,
+				ED9A476BF5CE4228AE0616A7,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		A285B9595D26651309224A73 /* PBXFrameworksBuildPhase */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		2FB286088BD0BF8AE88E0D78 /* PBXSourcesBuildPhase */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CEF284C274E356542F1F09A9,
+				B88A3060D0624193DED1358F,
+				4E2FE0B3E7771C5FD1D37441,
+				454932345D65A71B509964C3,
+				8CB33CC8050C2E909CA47DEF,
+				1404924635919016DA59C0E7,
+				C2534EC599D098CCA4DA9CBA,
+				9F6AF64B99F33AB88523DC91,
+				11579B1AFB98CA31FFDBE997,
+				388485413CF0586B1113DB27,
+				FA1E6DCF919330F6D1C6DF09,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		9E88FEF503C1E40FDF23CCDE /* PBXFrameworksBuildPhase */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				536D1B443F1ECF56DF9DEEBC,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		B156C1E46BE15DE52AC798A1 /* PBXResourcesBuildPhase */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				543E8408D996E7ED378179E0,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		0B45A4956EB4086F3AB39308 /* PBXCopyFilesBuildPhase */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				208F3E1294F86C098D77FDB0,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			name = "Embed Frameworks";
+		};
+
+		253B7D7D35FBA95AB93123FF /* PBXSourcesBuildPhase */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9CB2788BFB8C897BDEB713B1,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		56361F60CA31B6C99997FAC5 /* PBXFrameworksBuildPhase */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				92FFAE3DE8039044F6351EA1,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		B3E6C733AE4AFAA875E4E50F /* PBXCopyFilesBuildPhase */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3DA9793A6D640506FAA7D136,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			name = "Embed Frameworks";
+		};
+
+		47351C704E9A4A3238C7C5C7 /* PBXShellScriptBuildPhase */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/App/Shaders/Dewrinkle.metal",
+			);
+			name = "Compile Core Image kernel";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Dewrinkle.ci.metallib",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"${SRCROOT}/Scripts/compile-kernel.sh\"";
+		};
+
+		DA3EB179D6EE613492F299B1 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				2DA7604FA8A666AE3190D7F3,
+				8EA2C27DF26C04FAF02D1A37,
+				BC0E4F6680F859CE68360619,
+				C06478ACAFAB3435BD96C289,
+				4580659C1164F3985E60BEAC,
+				A072ECD2C5B8F538E7C4EF4F,
+				05A00A6F01DD1EFB0DC6226B,
+				A095DE932D6BD3A65D5259EE,
+				B1CF2BA702836B4643739E49,
+				B829FED33E8DC1CA2B0007C7,
+			);
+			path = "DewrinkleCore";
+			sourceTree = "<group>";
+			name = "DewrinkleCore";
+		};
+
+		1507F349832A04790D3C1273 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				DA3EB179D6EE613492F299B1,
+			);
+			path = "Sources";
+			sourceTree = "<group>";
+			name = "Sources";
+		};
+
+		7B86E98FA2B577A7016EB9C3 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				B4D2D1ACC8BB367F043FE629,
+				9A009BABF672353527B2CA81,
+			);
+			path = "Engine";
+			sourceTree = "<group>";
+			name = "Engine";
+		};
+
+		C1D893F88D1BF5B307BE18B6 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				15F7BD6AF85D8DE2C9625D08,
+				EC9C97F99F777A3F130C7956,
+			);
+			path = "IO";
+			sourceTree = "<group>";
+			name = "IO";
+		};
+
+		EFBF5976A404FA6C26E0BD30 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				015347A71C543953A83BB9DE,
+			);
+			path = "Masking";
+			sourceTree = "<group>";
+			name = "Masking";
+		};
+
+		EA100AF388BFBBF9EF3FFEC3 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				BFE1540E55C9B167B56F0A96,
+				9B3D2D259E88E7F9D463EE06,
+				BBBB0606E4C49E45646C1298,
+				574F092B5816ECF0B731279E,
+				765A81545A8023B165A230A6,
+			);
+			path = "UI";
+			sourceTree = "<group>";
+			name = "UI";
+		};
+
+		6B6CB8F7CAEB04765392406F /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				435A866B34A3731DA36AF1DF,
+			);
+			path = "Shaders";
+			sourceTree = "<group>";
+			name = "Shaders";
+		};
+
+		82CF2A43A7100F086D7FCFDD /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				D9C97E505B7AB7C1D8E9FE07,
+				7B86E98FA2B577A7016EB9C3,
+				C1D893F88D1BF5B307BE18B6,
+				EFBF5976A404FA6C26E0BD30,
+				6B6CB8F7CAEB04765392406F,
+				EA100AF388BFBBF9EF3FFEC3,
+				BEB3D2DA8A848A64DCCC6EFC,
+				CDF37532034B5926FB9F120D,
+				36291340F8E26B93BEB58318,
+			);
+			path = "App";
+			sourceTree = "<group>";
+			name = "App";
+		};
+
+		718B683D9F4EC7C92A0CE498 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				BAD1F166B9535FE35163FE6B,
+			);
+			path = "DewrinkleCoreTests";
+			sourceTree = "<group>";
+			name = "DewrinkleCoreTests";
+		};
+
+		A0937472EE5878FA82CB0F7E /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				718B683D9F4EC7C92A0CE498,
+			);
+			path = "Tests";
+			sourceTree = "<group>";
+			name = "Tests";
+		};
+
+		547D009064F7C3F13BEF3460 /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				84337AD8D27FCD69AF2C4FC2,
+				64133D2BCDD72274D4723519,
+				B5A2BEBE86215B3F6D160426,
+			);
+			sourceTree = "<group>";
+			name = "Products";
+		};
+
+		518DA81DB9B99529C0C0AEBE /* PBXGroup */ = {
+			isa = PBXGroup;
+			children = (
+				82CF2A43A7100F086D7FCFDD,
+				1507F349832A04790D3C1273,
+				A0937472EE5878FA82CB0F7E,
+				547D009064F7C3F13BEF3460,
+			);
+			sourceTree = "<group>";
+			name = "Dewrinkle";
+		};
+
+		939AA37F66FA2B535DBAF4FA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595;
+			proxyType = 1;
+			remoteGlobalIDString = D0979E03DAE6CBA26C12845A;
+			remoteInfo = "app-on-DewrinkleCore";
+		};
+
+		B05F9F65FDA20DFF7BCF9095 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595;
+			proxyType = 1;
+			remoteGlobalIDString = D0979E03DAE6CBA26C12845A;
+			remoteInfo = "test-on-DewrinkleCore";
+		};
+
+		6B4E3CE9C39CCBA72A607E8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D0979E03DAE6CBA26C12845A;
+			targetProxy = 939AA37F66FA2B535DBAF4FA;
+		};
+
+		211FFEEEA55F99619E5D2EA3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D0979E03DAE6CBA26C12845A;
+			targetProxy = B05F9F65FDA20DFF7BCF9095;
+		};
+
+		5D8FAFDDCD46CE21C6E6E476 /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+
+		5178E246331F9BA6AED4718F /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+
+		7EF2517A8FE63F4681EC5EEA /* XCConfigurationList */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D8FAFDDCD46CE21C6E6E476,
+				5178E246331F9BA6AED4718F,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+		09913A3F20E3844B753D2369 /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = @rpath;
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = $(LOCAL_LIBRARY_DIR)/Frameworks;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.dewinkle.DewrinkleCore;
+				PRODUCT_NAME = DewrinkleCore;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				ENABLE_TESTABILITY = YES;
+			};
+			name = Debug;
+		};
+
+		F1BB4A302B8CC32E8FF1C41E /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = @rpath;
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = $(LOCAL_LIBRARY_DIR)/Frameworks;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.dewinkle.DewrinkleCore;
+				PRODUCT_NAME = DewrinkleCore;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+
+		E01DBF3FD602494EA2B10757 /* XCConfigurationList */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				09913A3F20E3844B753D2369,
+				F1BB4A302B8CC32E8FF1C41E,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+		8BCD2E9F73FE8892796EC23B /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Dewrinkle.entitlements;
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.dewinkle.Dewrinkle;
+				PRODUCT_NAME = Dewrinkle;
+			};
+			name = Debug;
+		};
+
+		257923A544666465AA6EA207 /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Dewrinkle.entitlements;
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.dewinkle.Dewrinkle;
+				PRODUCT_NAME = Dewrinkle;
+			};
+			name = Release;
+		};
+
+		5505F9AF814A7F0992DE2402 /* XCConfigurationList */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8BCD2E9F73FE8892796EC23B,
+				257923A544666465AA6EA207,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+		4A9434E92FC4B7CFC7BB86A7 /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.dewinkle.DewrinkleCoreTests;
+				PRODUCT_NAME = DewrinkleCoreTests;
+				TEST_HOST = "";
+			};
+			name = Debug;
+		};
+
+		3970F751E9F0E32DA284999B /* XCBuildConfiguration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.dewinkle.DewrinkleCoreTests;
+				PRODUCT_NAME = DewrinkleCoreTests;
+				TEST_HOST = "";
+			};
+			name = Release;
+		};
+
+		E5A230C5C352779E4F6499D2 /* XCConfigurationList */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A9434E92FC4B7CFC7BB86A7,
+				3970F751E9F0E32DA284999B,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+		D0979E03DAE6CBA26C12845A /* PBXNativeTarget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E01DBF3FD602494EA2B10757;
+			buildPhases = (
+				C859573C343C44D62F514308,
+				A285B9595D26651309224A73,
+			);
+			buildRules = (
+			);
+			dependencies = (
+
+			);
+			name = "DewrinkleCore";
+			productName = "DewrinkleCore";
+			productReference = 64133D2BCDD72274D4723519;
+			productType = "com.apple.product-type.framework";
+		};
+
+		E3435DDA2687639586BF0B70 /* PBXNativeTarget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5505F9AF814A7F0992DE2402;
+			buildPhases = (
+				2FB286088BD0BF8AE88E0D78,
+				9E88FEF503C1E40FDF23CCDE,
+				B156C1E46BE15DE52AC798A1,
+				0B45A4956EB4086F3AB39308,
+				47351C704E9A4A3238C7C5C7,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6B4E3CE9C39CCBA72A607E8E,
+			);
+			name = "Dewrinkle";
+			productName = "Dewrinkle";
+			productReference = 84337AD8D27FCD69AF2C4FC2;
+			productType = "com.apple.product-type.application";
+		};
+
+		5DED2D04DB49D4091162647E /* PBXNativeTarget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E5A230C5C352779E4F6499D2;
+			buildPhases = (
+				253B7D7D35FBA95AB93123FF,
+				56361F60CA31B6C99997FAC5,
+				B3E6C733AE4AFAA875E4E50F,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				211FFEEEA55F99619E5D2EA3,
+			);
+			name = "DewrinkleCoreTests";
+			productName = "DewrinkleCoreTests";
+			productReference = B5A2BEBE86215B3F6D160426;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+
+		46F86FAA6BBF9AC94A7E4595 /* PBXProject */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					E3435DDA2687639586BF0B70 = { CreatedOnToolsVersion = 15.0; };
+					D0979E03DAE6CBA26C12845A = { CreatedOnToolsVersion = 15.0; };
+					5DED2D04DB49D4091162647E = { CreatedOnToolsVersion = 15.0; };
+				};
+			};
+			buildConfigurationList = 7EF2517A8FE63F4681EC5EEA;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 518DA81DB9B99529C0C0AEBE;
+			productRefGroup = 547D009064F7C3F13BEF3460;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E3435DDA2687639586BF0B70,
+				D0979E03DAE6CBA26C12845A,
+				5DED2D04DB49D4091162647E,
+			);
+		};
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+}

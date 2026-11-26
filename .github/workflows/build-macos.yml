@@ -1,0 +1,111 @@
+name: Build Dewrinkle
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dewrinkle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test and package
+    runs-on: macos-15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          set -euo pipefail
+          if [[ ! -d /Applications/Xcode_16.4.app ]]; then
+            echo "Xcode 16.4 is not installed. Available Xcode apps:"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s /Applications/Xcode_16.4.app
+          xcodebuild -version
+          swift --version
+          xcrun --show-sdk-path
+          xcrun --show-sdk-version
+
+      - name: Swift package tests
+        run: swift test
+
+      - name: Build Release app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project Dewrinkle.xcodeproj \
+            -scheme Dewrinkle \
+            -configuration Release \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath DerivedData \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build
+
+      - name: Zip Dewrinkle.app with ditto
+        run: |
+          set -euo pipefail
+          APP="DerivedData/Build/Products/Release/Dewrinkle.app"
+          test -d "${APP}"
+          codesign --verify --verbose=2 "${APP}"
+          codesign -dv --verbose=4 "${APP}"
+          lipo -info "${APP}/Contents/MacOS/Dewrinkle"
+          if [[ -d "${APP}/Contents/Frameworks/DewrinkleCore.framework" ]]; then
+            codesign --verify --verbose=2 "${APP}/Contents/Frameworks/DewrinkleCore.framework"
+          fi
+          mkdir -p dist
+          ditto -c -k --keepParent "${APP}" dist/Dewrinkle-macOS.zip
+          unzip -l dist/Dewrinkle-macOS.zip
+          ls -lh dist/Dewrinkle-macOS.zip
+
+      - name: Upload Dewrinkle-macOS.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dewrinkle-macOS
+          path: dist/Dewrinkle-macOS.zip
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Publish or update the GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'EOF'
+          Double-clickable Dewrinkle for Apple Silicon Macs (arm64). No Xcode and no paid Apple Developer account.
+
+          1. Download Dewrinkle-macOS.zip from this release.
+          2. Double-click the zip to get Dewrinkle.app.
+          3. Drag Dewrinkle.app into Applications and open it.
+
+          The app is ad-hoc signed (codesign identity -). macOS Sequoia quarantines that signature when the zip comes from the internet. The first open is blocked until you allow it:
+
+          - System Settings, Privacy and Security, Open Anyway
+          - or, in Terminal: xattr -dr com.apple.quarantine /Applications/Dewrinkle.app
+
+          Then open Dewrinkle again. You only do this once per download.
+          EOF
+          echo "Built from ${GITHUB_SHA} with Xcode 16 on macos-15." >> release-notes.md
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest \
+            --title "Dewrinkle for Mac" \
+            --latest \
+            --notes-file release-notes.md \
+            dist/Dewrinkle-macOS.zip
