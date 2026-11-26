@@ -1120,10 +1120,11 @@ private func writeRegression(before: RGBImage, mask: MaskBuffer, after: RGBImage
                     green = after.pixels[edited + 1]
                     blue = after.pixels[edited + 2]
                 }
-                if panel == 2, reference != nil {
-                    red = reference.pixels[reference.offset(x, y)]
-                    green = reference.pixels[reference.offset(x, y) + 1]
-                    blue = reference.pixels[reference.offset(x, y) + 2]
+                if panel == 2, let reference {
+                    let index = reference.offset(x, y)
+                    red = reference.pixels[index]
+                    green = reference.pixels[index + 1]
+                    blue = reference.pixels[index + 2]
                 }
                 bytes[destination] = UInt8((min(max(red, 0), 1) * 255).rounded())
                 bytes[destination + 1] = UInt8((min(max(green, 0), 1) * 255).rounded())
