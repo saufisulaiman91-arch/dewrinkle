@@ -215,7 +215,7 @@ public enum FrequencySeparation {
                 if coverage <= 0 { continue }
                 let folds = fine[index] - deep[index]
                 let drape = deep[index] - base[index]
-                let edgeWeight = 1 - smoothstep(0.035, 0.12, edges[index])
+                let edgeWeight = 1 - smoothstep(0.14, 0.32, edges[index])
                 let delta = (
                     -(lines[index] * wideGate[index] + grain[index] * centerGate[index] * 0.35) * fineAmount
                     - (folds * 0.9 + drape * structureSoften) * deepAmount
