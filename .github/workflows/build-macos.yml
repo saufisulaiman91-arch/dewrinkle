@@ -20,7 +20,8 @@ jobs:
     # that macOS arm64 jobs were capacity constrained. macos-14 was retired
     # on 2026-11-02. macos-latest is macos-26 arm64, the same constrained
     # pool. macos-15-intel is the macOS 15 image with Xcode 16.4, and the
-    # build below still produces an arm64 Dewrinkle.app.
+    # build below produces a universal Dewrinkle.app (arm64 and x86_64)
+    # so this Intel runner can launch it. The M3 slice is arm64.
     runs-on: macos-15-intel
     steps:
       - name: Check out
@@ -52,7 +53,7 @@ jobs:
             -configuration Release \
             -destination "generic/platform=macOS" \
             -derivedDataPath DerivedData \
-            ARCHS=arm64 \
+            ARCHS="arm64 x86_64" \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="-" \
@@ -73,11 +74,13 @@ jobs:
             echo "DewrinkleCore.framework is still embedded; the core must be linked statically."
             exit 1
           fi
-          if otool -L "${BIN}" | grep -q DewrinkleCore; then
-            echo "The app still links DewrinkleCore as a dynamic library:"
-            otool -L "${BIN}"
-            exit 1
-          fi
+          for arch in arm64 x86_64; do
+            if otool -L -arch "${arch}" "${BIN}" | grep -q DewrinkleCore; then
+              echo "The ${arch} slice still links DewrinkleCore as a dynamic library:"
+              otool -L -arch "${arch}" "${BIN}"
+              exit 1
+            fi
+          done
           # One ad-hoc signature for the whole bundle. Hardened runtime stays on.
           codesign --force --deep --sign - --options runtime \
             --entitlements App/Dewrinkle.entitlements \
