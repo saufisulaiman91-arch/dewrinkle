@@ -699,8 +699,8 @@ final class EngineTests: XCTestCase {
 
         var smoothing = DewrinkleParameters.detected
         smoothing.detailRadiusOverride = 1
-        smoothing.fineRadiusOverride = 5
-        smoothing.coarseRadiusOverride = 14
+        smoothing.fineRadiusOverride = 8
+        smoothing.coarseRadiusOverride = 18
         let smoothed = FrequencySeparation.apply(
             image,
             mask: mask,
@@ -711,7 +711,7 @@ final class EngineTests: XCTestCase {
         let beforeEnergy = WrinkleDetector.creaseEnergy(of: image, region: skirt)
         let afterEnergy = WrinkleDetector.creaseEnergy(of: smoothed, region: skirt)
         XCTAssertGreaterThan(beforeEnergy, 0.01)
-        XCTAssertLessThan(afterEnergy, beforeEnergy * 0.62, "diagonal crease energy should drop")
+        XCTAssertLessThan(afterEnergy, beforeEnergy * 0.45, "diagonal crease energy should drop")
         XCTAssertGreaterThan(shadeSplit(smoothed), shadeSplit(image) * 0.68, "broad body shading stays")
         XCTAssertLessThan(meanAbsDelta(image, smoothed, y: 16..<58, x: 32..<(image.width - 32)), 0.04, "embroidery stays crisp")
         XCTAssertLessThan(
