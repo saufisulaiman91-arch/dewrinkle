@@ -27,8 +27,8 @@ enum CGBridge {
             ) else {
                 return false
             }
-            context.translateBy(x: 0, y: CGFloat(height))
-            context.scaleBy(x: 1, y: -1)
+            // A bitmap context already stores the first row at the top of the image.
+            // Flipping here turned portrait JPEGs upside down in the mask and the preview RGB.
             context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
             return true
         }
