@@ -15,7 +15,13 @@ concurrency:
 jobs:
   build:
     name: Test and package
-    runs-on: macos-15
+    # macos-15 is the arm64 label. On 2026-11-26 those runners were not
+    # assigned ("not acquired by Runner of type hosted") and GitHub warned
+    # that macOS arm64 jobs were capacity constrained. macos-14 was retired
+    # on 2026-11-02. macos-latest is macos-26 arm64, the same constrained
+    # pool. macos-15-intel is the macOS 15 image with Xcode 16.4, and the
+    # build below still produces an arm64 Dewrinkle.app.
+    runs-on: macos-15-intel
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -44,10 +50,10 @@ jobs:
             -project Dewrinkle.xcodeproj \
             -scheme Dewrinkle \
             -configuration Release \
-            -destination "platform=macOS,arch=arm64" \
+            -destination "generic/platform=macOS" \
             -derivedDataPath DerivedData \
             ARCHS=arm64 \
-            ONLY_ACTIVE_ARCH=YES \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=YES \

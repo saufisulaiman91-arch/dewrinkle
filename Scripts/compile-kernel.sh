@@ -18,7 +18,15 @@ if [[ ! -f "${SRC}" ]]; then
   exit 0
 fi
 
-if ! xcrun --sdk macosx metal -c "${SRC}" -o "${AIR}"; then
+# bash on the runner is 3.2, so keep this as two commands rather than an array.
+if [[ "${ARCHS:-arm64}" == *arm64* ]]; then
+  metal_ok=0
+  xcrun --sdk macosx metal -c "${SRC}" -o "${AIR}" -target "air64-apple-macos${MACOSX_DEPLOYMENT_TARGET:-14.0}" && metal_ok=1
+else
+  metal_ok=0
+  xcrun --sdk macosx metal -c "${SRC}" -o "${AIR}" && metal_ok=1
+fi
+if [[ "${metal_ok}" -ne 1 ]]; then
   warn "Core Image metallib was not built."
   exit 0
 fi

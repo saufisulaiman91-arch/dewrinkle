@@ -65,7 +65,7 @@ Assign `DenoiseSlot.shared.model` to any object that adopts `MLDenoiseModel`. Wh
 
 ## Build and run
 
-The downloadable app is produced by `.github/workflows/build-macos.yml` on a `macos-15` runner with Xcode 16.4. That workflow runs `swift test`, builds the Release app for arm64 with `CODE_SIGN_IDENTITY="-"`, zips `Dewrinkle.app` with `ditto`, and uploads the zip. Pushes to `main` replace the `latest` GitHub Release.
+The downloadable app is produced by `.github/workflows/build-macos.yml` with Xcode 16.4. The workflow runs `swift test`, builds the Release app for arm64 with `CODE_SIGN_IDENTITY="-"`, zips `Dewrinkle.app` with `ditto`, and uploads the zip. It uses the macOS 15 Intel runner (`macos-15-intel`) because GitHub’s arm64 macOS pool was not assigning runners, and still emits an arm64 app. Pushes to `main` replace the `latest` GitHub Release.
 
 To build it yourself you need an Apple Silicon Mac, macOS 14 or later, and Xcode 15 or 16.
 
